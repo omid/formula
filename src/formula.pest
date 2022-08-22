@@ -1,0 +1,851 @@
+// ^([A-Z]*)$
+// \L$1 = { ^"\U$1" ~ OP ~ F ~ CP }
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+OP = _{ "(" } // open parenthesis
+CP = _{ ")" } // close parenthesis
+C = _{ "," } // comma
+Q = _{ "'" | "\"" } // quote
+F = _{ formula } // any of the formulas
+CF = _{ C ~ F } // combination of comma and any of the formulas
+
+// Basic types
+string = ${ Q ~ inner ~ Q }
+inner = @{ char_* }
+char_ = _{
+    !(Q | "\\") ~ ANY
+    | "\\" ~ (Q | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+num = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+bool_true = { ^"true" | ^"true" ~ OP ~ CP }
+bool_false = { ^"false" | ^"false" ~ OP ~ CP }
+basic_types = _{ string | num | bool_true | bool_false }
+
+// Excel functions
+// Date & Time functions
+date = { ^"DATE" ~ OP ~ F ~ CF ~ CF ~ CP }
+time = { ^"TIME" ~ OP ~ F ~ CF ~ CF ~ CP }
+datevalue = { ^"DATEVALUE" ~ OP ~ F ~ CP }
+timevalue = { ^"TIMEVALUE" ~ OP ~ F ~ CP }
+datediff = { ^"DATEDIFF" ~ OP ~ F ~ CF ~ CF ~ CP }
+year = { ^"YEAR" ~ OP ~ F ~ CP }
+month = { ^"MONTH" ~ OP ~ F ~ CP }
+day = { ^"DAY" ~ OP ~ F ~ CP }
+days = { ^"DAYS" ~ OP ~ F ~ CF ~ CP }
+days360 = { ^"DAYS360" ~ OP ~ F ~ CF ~ CF? ~ CP }
+edate = { ^"EDATE" ~ OP ~ F ~ CF ~ CP }
+eomonth = { ^"EOMONTH" ~ OP ~ F ~ CF ~ CP }
+hour = { ^"HOUR" ~ OP ~ F ~ CP }
+minute = { ^"MINUTE" ~ OP ~ F ~ CP }
+second = { ^"SECOND" ~ OP ~ F ~ CP }
+networkdays = { ^"NETWORKDAYS" ~ OP ~ F ~ CF ~ CF? ~ CP }
+networkdaysintl = { (^"NETWORKDAYSINTL" | ^"NETWORKDAYS.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
+workdays = { ^"WORKDAYS" ~ OP ~ F ~ CF ~ CF? ~ CP }
+workdaysintl = { (^"WORKDAYSINTL" | ^"WORKDAYS.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
+weekday = { ^"WEEKDAY" ~ OP ~ F ~ CF? ~ CP }
+weeknum = { ^"WEEKNUM" ~ OP ~ F ~ CF? ~ CP }
+isoweeknum = { ^"ISOWEEKNUM" ~ OP ~ F ~ CP }
+yearfrac = { ^"YEARFRAC" ~ OP ~ F ~ CF ~ CF? ~ CP }
+now = { ^"NOW" ~ OP ~ CP }
+today = { ^"TODAY" ~ OP ~ CP }
+datetime_functions = _{
+	date
+	| time
+	| datevalue
+	| timevalue
+	| datediff
+	| year
+	| month
+	| day
+	| days
+	| days360
+	| edate
+	| eomonth
+	| hour
+	| minute
+	| second
+	| networkdays
+	| networkdaysintl
+	| weekday
+	| weeknum
+	| isoweeknum
+	| yearfrac
+	| now
+	| today
+}
+
+// Text functions
+left = { ^"LEFT" ~ OP ~ F ~ CF? ~ CP }
+leftb = { ^"LEFTB" ~ OP ~ F ~ CF? ~ CP }
+arraytotext = { ^"ARRAYTOTEXT" ~ OP ~ F ~ CF? ~ CP }
+asc = { ^"ASC" ~ OP ~ F ~ CP }
+bahttext = { ^"BAHTTEXT" ~ OP ~ F ~ CP }
+char = { ^"CHAR" ~ OP ~ F ~ CP }
+clean = { ^"CLEAN" ~ OP ~ F ~ CP }
+code = { ^"CODE" ~ OP ~ F ~ CP }
+concat = { ^"CONCAT" ~ OP ~ F ~ CF* ~ CP }
+concatenate = { ^"CONCATENATE" ~ OP ~ F ~ CF* ~ CP }
+dbcs = { ^"DBCS" ~ OP ~ F ~ CP }
+dollar = { ^"DOLLAR" ~ OP ~ F ~ CF? ~ CP }
+exact = { ^"EXACT" ~ OP ~ F ~ CF ~ CP }
+find = { ^"FIND" ~ OP ~ F ~ CF ~ CF? ~ CP }
+findb = { ^"FINDB" ~ OP ~ F ~ CF ~ CF? ~ CP }
+fixed = { ^"FIXED" ~ OP ~ F ~ CF? ~ CF? ~ CP }
+jis = { ^"JIS" ~ OP ~ F ~ CP }
+len = { ^"LEN" ~ OP ~ F ~ CP }
+lenb = { ^"LENB" ~ OP ~ F ~ CP }
+lower = { ^"LOWER" ~ OP ~ F ~ CP }
+mid = { ^"MID" ~ OP ~ F ~ CF ~ CF ~ CP }
+midb = { ^"MIDB" ~ OP ~ F ~ CF ~ CF ~ CP }
+numbervalue = { ^"NUMBERVALUE" ~ OP ~ F ~ CF? ~ CF? ~ CP }
+phonetic = { ^"PHONETIC" ~ OP ~ F ~ CP }
+proper = { ^"PROPER" ~ OP ~ F ~ CP }
+replace = { ^"REPLACE" ~ OP ~ F ~ CF ~ CF ~ CF ~ CP }
+replaceb = { ^"REPLACEB" ~ OP ~ F ~ CF ~ CF ~ CF ~ CP }
+rept = { ^"REPT" ~ OP ~ F ~ CF ~ CP }
+right = { ^"RIGHT" ~ OP ~ F ~ CF? ~ CP }
+rightb = { ^"RIGHTB" ~ OP ~ F ~ CF? ~ CP }
+search = { ^"SEARCH" ~ OP ~ F ~ CF ~ CF? ~ CP }
+searchb = { ^"SEARCHB" ~ OP ~ F ~ CF ~ CF? ~ CP }
+substitute = { ^"SUBSTITUTE" ~ OP ~ F ~ CF ~ CF ~ CF? ~ CP }
+t = { ^"T" ~ OP ~ F ~ CP }
+text = { ^"TEXT" ~ OP ~ F ~ CF ~ CP }
+textafter = { ^"TEXTAFTER" ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CF? ~ CF? ~ CP }
+textbefore = { ^"TEXTBEFORE" ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CF? ~ CF? ~ CP }
+textjoin = { ^"TEXTJOIN" ~ OP ~ F ~ CF ~ CF ~ CF* ~ CP }
+textsplit = { ^"TEXTSPLIT" ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CF? ~ CF? ~ CP }
+trim = { ^"TRIM" ~ OP ~ F ~ CP }
+unichar = { ^"UNICHAR" ~ OP ~ F ~ CP }
+unicode = { ^"UNICODE" ~ OP ~ F ~ CP }
+upper = { ^"UPPER" ~ OP ~ F ~ CP }
+value = { ^"VALUE" ~ OP ~ F ~ CP }
+valuetotext = { ^"VALUETOTEXT" ~ OP ~ F ~ CF? ~ CP }
+text_functions = _{
+	left
+	| leftb
+	| arraytotext
+	| asc
+	| bahttext
+	| char
+	| clean
+	| code
+	| concat
+	| concatenate
+	| dbcs
+	| dollar
+	| exact
+	| find
+	| findb
+	| fixed
+	| jis
+	| len
+	| lenb
+	| lower
+	| mid
+	| midb
+	| numbervalue
+	| phonetic
+	| proper
+	| replace
+	| replaceb
+	| rept
+	| right
+	| rightb
+	| search
+	| searchb
+	| substitute
+	| t
+	| text
+	| textafter
+	| textbefore
+	| textjoin
+	| textsplit
+	| trim
+	| unichar
+	| unicode
+	| upper
+	| value
+	| valuetotext
+}
+
+// Engineering functions
+// besseli = { ^"BESSELI" ~ OP ~ F ~ CP }
+// besselj = { ^"BESSELJ" ~ OP ~ F ~ CP }
+// besselk = { ^"BESSELK" ~ OP ~ F ~ CP }
+// bessely = { ^"BESSELY" ~ OP ~ F ~ CP }
+// bin2dec = { ^"BIN2DEC" ~ OP ~ F ~ CP }
+// bin2hex = { ^"BIN2HEX" ~ OP ~ F ~ CP }
+// bin2oct = { ^"BIN2OCT" ~ OP ~ F ~ CP }
+// bitand = { ^"BITAND" ~ OP ~ F ~ CP }
+// bitlshift = { ^"BITLSHIFT" ~ OP ~ F ~ CP }
+// bitor = { ^"BITOR" ~ OP ~ F ~ CP }
+// bitrshift = { ^"BITRSHIFT" ~ OP ~ F ~ CP }
+// bitxor = { ^"BITXOR" ~ OP ~ F ~ CP }
+// complex = { ^"COMPLEX" ~ OP ~ F ~ CP }
+// convert = { ^"CONVERT" ~ OP ~ F ~ CP }
+// dec2bin = { ^"DEC2BIN" ~ OP ~ F ~ CP }
+// dec2hex = { ^"DEC2HEX" ~ OP ~ F ~ CP }
+// dec2oct = { ^"DEC2OCT" ~ OP ~ F ~ CP }
+// delta = { ^"DELTA" ~ OP ~ F ~ CP }
+// erf = { ^"ERF" ~ OP ~ F ~ CP }
+// erf_precise = { ^"ERF.PRECISE" ~ OP ~ F ~ CP }
+// erfc = { ^"ERFC" ~ OP ~ F ~ CP }
+// erfc_precise = { ^"ERFC.PRECISE" ~ OP ~ F ~ CP }
+// gestep = { ^"GESTEP" ~ OP ~ F ~ CP }
+// hex2bin = { ^"HEX2BIN" ~ OP ~ F ~ CP }
+// hex2dec = { ^"HEX2DEC" ~ OP ~ F ~ CP }
+// hex2oct = { ^"HEX2OCT" ~ OP ~ F ~ CP }
+// imabs = { ^"IMABS" ~ OP ~ F ~ CP }
+// imaginary = { ^"IMAGINARY" ~ OP ~ F ~ CP }
+// imargument = { ^"IMARGUMENT" ~ OP ~ F ~ CP }
+// imconjugate = { ^"IMCONJUGATE" ~ OP ~ F ~ CP }
+// imcos = { ^"IMCOS" ~ OP ~ F ~ CP }
+// imcosh = { ^"IMCOSH" ~ OP ~ F ~ CP }
+// imcot = { ^"IMCOT" ~ OP ~ F ~ CP }
+// imcsc = { ^"IMCSC" ~ OP ~ F ~ CP }
+// imcsch = { ^"IMCSCH" ~ OP ~ F ~ CP }
+// imdiv = { ^"IMDIV" ~ OP ~ F ~ CP }
+// imexp = { ^"IMEXP" ~ OP ~ F ~ CP }
+// imln = { ^"IMLN" ~ OP ~ F ~ CP }
+// imlog10 = { ^"IMLOG10" ~ OP ~ F ~ CP }
+// imlog2 = { ^"IMLOG2" ~ OP ~ F ~ CP }
+// impower = { ^"IMPOWER" ~ OP ~ F ~ CP }
+// improduct = { ^"IMPRODUCT" ~ OP ~ F ~ CP }
+// imreal = { ^"IMREAL" ~ OP ~ F ~ CP }
+// imsec = { ^"IMSEC" ~ OP ~ F ~ CP }
+// imsech = { ^"IMSECH" ~ OP ~ F ~ CP }
+// imsin = { ^"IMSIN" ~ OP ~ F ~ CP }
+// imsinh = { ^"IMSINH" ~ OP ~ F ~ CP }
+// imsqrt = { ^"IMSQRT" ~ OP ~ F ~ CP }
+// imsub = { ^"IMSUB" ~ OP ~ F ~ CP }
+// imsum = { ^"IMSUM" ~ OP ~ F ~ CP }
+// imtan = { ^"IMTAN" ~ OP ~ F ~ CP }
+// oct2bin = { ^"OCT2BIN" ~ OP ~ F ~ CP }
+// oct2dec = { ^"OCT2DEC" ~ OP ~ F ~ CP }
+// oct2hex = { ^"OCT2HEX" ~ OP ~ F ~ CP }
+// engineering_functions = _{
+// 	besseli
+// 	| besselj
+// 	| besselk
+// 	| bessely
+// 	| bin2dec
+// 	| bin2hex
+// 	| bin2oct
+// 	| bitand
+// 	| bitlshift
+// 	| bitor
+// 	| bitrshift
+// 	| bitxor
+// 	| complex
+// 	| convert
+// 	| dec2bin
+// 	| dec2hex
+// 	| dec2oct
+// 	| delta
+// 	| erf
+// 	| erf_precise
+// 	| erfc
+// 	| erfc_precise
+// 	| gestep
+// 	| hex2bin
+// 	| hex2dec
+// 	| hex2oct
+// 	| imabs
+// 	| imaginary
+// 	| imargument
+// 	| imconjugate
+// 	| imcos
+// 	| imcosh
+// 	| imcot
+// 	| imcsc
+// 	| imcsch
+// 	| imdiv
+// 	| imexp
+// 	| imln
+// 	| imlog10
+// 	| imlog2
+// 	| impower
+// 	| improduct
+// 	| imreal
+// 	| imsec
+// 	| imsech
+// 	| imsin
+// 	| imsinh
+// 	| imsqrt
+// 	| imsub
+// 	| imsum
+// 	| imtan
+// 	| oct2bin
+// 	| oct2dec
+// 	| oct2hex
+// }
+
+// Financial functions
+// accrint = { ^"ACCRINT" ~ OP ~ F ~ CP }
+// accrintm = { ^"ACCRINTM" ~ OP ~ F ~ CP }
+// amordegrc = { ^"AMORDEGRC" ~ OP ~ F ~ CP }
+// amorlinc = { ^"AMORLINC" ~ OP ~ F ~ CP }
+// coupdaybs = { ^"COUPDAYBS" ~ OP ~ F ~ CP }
+// coupdays = { ^"COUPDAYS" ~ OP ~ F ~ CP }
+// coupdaysnc = { ^"COUPDAYSNC" ~ OP ~ F ~ CP }
+// coupncd = { ^"COUPNCD" ~ OP ~ F ~ CP }
+// coupnum = { ^"COUPNUM" ~ OP ~ F ~ CP }
+// couppcd = { ^"COUPPCD" ~ OP ~ F ~ CP }
+// cumipmt = { ^"CUMIPMT" ~ OP ~ F ~ CP }
+// cumprinc = { ^"CUMPRINC" ~ OP ~ F ~ CP }
+// db = { ^"DB" ~ OP ~ F ~ CP }
+// ddb = { ^"DDB" ~ OP ~ F ~ CP }
+// disc = { ^"DISC" ~ OP ~ F ~ CP }
+// dollarde = { ^"DOLLARDE" ~ OP ~ F ~ CP }
+// dollarfr = { ^"DOLLARFR" ~ OP ~ F ~ CP }
+// duration = { ^"DURATION" ~ OP ~ F ~ CP }
+// effect = { ^"EFFECT" ~ OP ~ F ~ CP }
+// fv = { ^"FV" ~ OP ~ F ~ CP }
+// fvschedule = { ^"FVSCHEDULE" ~ OP ~ F ~ CP }
+// intrate = { ^"INTRATE" ~ OP ~ F ~ CP }
+// ipmt = { ^"IPMT" ~ OP ~ F ~ CP }
+// irr = { ^"IRR" ~ OP ~ F ~ CP }
+// ispmt = { ^"ISPMT" ~ OP ~ F ~ CP }
+// mduration = { ^"MDURATION" ~ OP ~ F ~ CP }
+// mirr = { ^"MIRR" ~ OP ~ F ~ CP }
+// nominal = { ^"NOMINAL" ~ OP ~ F ~ CP }
+// nper = { ^"NPER" ~ OP ~ F ~ CP }
+// npv = { ^"NPV" ~ OP ~ F ~ CP }
+// oddfprice = { ^"ODDFPRICE" ~ OP ~ F ~ CP }
+// oddfyield = { ^"ODDFYIELD" ~ OP ~ F ~ CP }
+// oddlprice = { ^"ODDLPRICE" ~ OP ~ F ~ CP }
+// oddlyield = { ^"ODDLYIELD" ~ OP ~ F ~ CP }
+// pduration = { ^"PDURATION" ~ OP ~ F ~ CP }
+// pmt = { ^"PMT" ~ OP ~ F ~ CP }
+// ppmt = { ^"PPMT" ~ OP ~ F ~ CP }
+// price = { ^"PRICE" ~ OP ~ F ~ CP }
+// pricedisc = { ^"PRICEDISC" ~ OP ~ F ~ CP }
+// pricemat = { ^"PRICEMAT" ~ OP ~ F ~ CP }
+// pv = { ^"PV" ~ OP ~ F ~ CP }
+// rate = { ^"RATE" ~ OP ~ F ~ CP }
+// received = { ^"RECEIVED" ~ OP ~ F ~ CP }
+// rri = { ^"RRI" ~ OP ~ F ~ CP }
+// sln = { ^"SLN" ~ OP ~ F ~ CP }
+// stockhistory = { ^"STOCKHISTORY" ~ OP ~ F ~ CP }
+// syd = { ^"SYD" ~ OP ~ F ~ CP }
+// tbilleq = { ^"TBILLEQ" ~ OP ~ F ~ CP }
+// tbillprice = { ^"TBILLPRICE" ~ OP ~ F ~ CP }
+// tbillyield = { ^"TBILLYIELD" ~ OP ~ F ~ CP }
+// vdb = { ^"VDB" ~ OP ~ F ~ CP }
+// xirr = { ^"XIRR" ~ OP ~ F ~ CP }
+// yield_ = { ^"YIELD" ~ OP ~ F ~ CP }
+// yielddisc = { ^"YIELDDISC" ~ OP ~ F ~ CP }
+// yieldmat = { ^"YIELDMAT" ~ OP ~ F ~ CP }
+// financial_functions = _{
+// 	accrint
+// 	| accrintm
+// 	| amordegrc
+// 	| amorlinc
+// 	| coupdaybs
+// 	| coupdays
+// 	| coupdaysnc
+// 	| coupncd
+// 	| coupnum
+// 	| couppcd
+// 	| cumipmt
+// 	| cumprinc
+// 	| db
+// 	| ddb
+// 	| disc
+// 	| duration
+// 	| effect
+// 	| fv
+// 	| fvschedule
+// 	| intrate
+// 	| ipmt
+// 	| irr
+// 	| ispmt
+// 	| mduration
+// 	| mirr
+// 	| nominal
+// 	| nper
+// 	| npv
+// 	| oddfprice
+// 	| oddfyield
+// 	| oddlprice
+// 	| oddlyield
+// 	| pduration
+// 	| pmt
+// 	| ppmt
+// 	| price
+// 	| pricedisc
+// 	| pricemat
+// 	| pv
+// 	| rate
+// 	| received
+// 	| rri
+// 	| sln
+// 	| stockhistory
+// 	| syd
+// 	| tbilleq
+// 	| tbillprice
+// 	| tbillyield
+// 	| vdb
+// 	| xirr
+// 	| yield_
+// 	| yielddisc
+// 	| yieldmat
+// }
+
+// Logical functions
+// and = { ^"AND" ~ OP ~ F ~ CP }
+// bycol = { ^"BYCOL" ~ OP ~ F ~ CP }
+// byrow = { ^"BYROW" ~ OP ~ F ~ CP }
+// false_ = { ^"FALSE" ~ OP ~ F ~ CP }
+// if_ = { ^"IF" ~ OP ~ F ~ CP }
+// iferror = { ^"IFERROR" ~ OP ~ F ~ CP }
+// ifna = { ^"IFNA" ~ OP ~ F ~ CP }
+// ifs = { ^"IFS" ~ OP ~ F ~ CP }
+// lambda = { ^"LAMBDA" ~ OP ~ F ~ CP }
+// let_ = { ^"LET" ~ OP ~ F ~ CP }
+// makearray = { ^"MAKEARRAY" ~ OP ~ F ~ CP }
+// map = { ^"MAP" ~ OP ~ F ~ CP }
+// not = { ^"NOT" ~ OP ~ F ~ CP }
+// or = { ^"OR" ~ OP ~ F ~ CP }
+// reduce = { ^"REDUCE" ~ OP ~ F ~ CP }
+// scan = { ^"SCAN" ~ OP ~ F ~ CP }
+// switch = { ^"SWITCH" ~ OP ~ F ~ CP }
+// true_ = { ^"TRUE" ~ OP ~ F ~ CP }
+// xor = { ^"XOR" ~ OP ~ F ~ CP }
+// logical_functions = _{
+// 	and
+// 	| bycol
+// 	| byrow
+// 	| false_
+// 	| if_
+// 	| iferror
+// 	| ifna
+// 	| ifs
+// 	| lambda
+// 	| let_
+// 	| makearray
+// 	| map
+// 	| not
+// 	| or
+// 	| reduce
+// 	| scan
+// 	| switch
+// 	| true_
+// 	| xor
+// }
+
+// Math functions
+// abs = { ^"ABS" ~ OP ~ F ~ CP }
+// acos = { ^"ACOS" ~ OP ~ F ~ CP }
+// acosh = { ^"ACOSH" ~ OP ~ F ~ CP }
+// acot = { ^"ACOT" ~ OP ~ F ~ CP }
+// acoth = { ^"ACOTH" ~ OP ~ F ~ CP }
+// aggregate = { ^"AGGREGATE" ~ OP ~ F ~ CP }
+// arabic = { ^"ARABIC" ~ OP ~ F ~ CP }
+// asin = { ^"ASIN" ~ OP ~ F ~ CP }
+// asinh = { ^"ASINH" ~ OP ~ F ~ CP }
+// atan = { ^"ATAN" ~ OP ~ F ~ CP }
+// atan2 = { ^"ATAN2" ~ OP ~ F ~ CP }
+// atanh = { ^"ATANH" ~ OP ~ F ~ CP }
+// base = { ^"BASE" ~ OP ~ F ~ CP }
+// ceiling_math = { ^"CEILING.MATH" ~ OP ~ F ~ CP }
+// ceiling_precise = { ^"CEILING.PRECISE" ~ OP ~ F ~ CP }
+// combin = { ^"COMBIN" ~ OP ~ F ~ CP }
+// combina = { ^"COMBINA" ~ OP ~ F ~ CP }
+// cos = { ^"COS" ~ OP ~ F ~ CP }
+// cosh = { ^"COSH" ~ OP ~ F ~ CP }
+// cot = { ^"COT" ~ OP ~ F ~ CP }
+// coth = { ^"COTH" ~ OP ~ F ~ CP }
+// csc = { ^"CSC" ~ OP ~ F ~ CP }
+// csch = { ^"CSCH" ~ OP ~ F ~ CP }
+// decimal = { ^"DECIMAL" ~ OP ~ F ~ CP }
+// degrees = { ^"DEGREES" ~ OP ~ F ~ CP }
+// even = { ^"EVEN" ~ OP ~ F ~ CP }
+// exp = { ^"EXP" ~ OP ~ F ~ CP }
+// fact = { ^"FACT" ~ OP ~ F ~ CP }
+// factdouble = { ^"FACTDOUBLE" ~ OP ~ F ~ CP }
+// floor_math = { ^"FLOOR.MATH" ~ OP ~ F ~ CP }
+// floor_precise = { ^"FLOOR.PRECISE" ~ OP ~ F ~ CP }
+// gcd = { ^"GCD" ~ OP ~ F ~ CP }
+// int = { ^"INT" ~ OP ~ F ~ CP }
+// iso_ceiling = { ^"ISO.CEILING" ~ OP ~ F ~ CP }
+// lcm = { ^"LCM" ~ OP ~ F ~ CP }
+// ln = { ^"LN" ~ OP ~ F ~ CP }
+// log = { ^"LOG" ~ OP ~ F ~ CP }
+// log10 = { ^"LOG10" ~ OP ~ F ~ CP }
+// mdeterm = { ^"MDETERM" ~ OP ~ F ~ CP }
+// minverse = { ^"MINVERSE" ~ OP ~ F ~ CP }
+// mmult = { ^"MMULT" ~ OP ~ F ~ CP }
+// mod_ = { ^"MOD" ~ OP ~ F ~ CP }
+// mround = { ^"MROUND" ~ OP ~ F ~ CP }
+// multinomial = { ^"MULTINOMIAL" ~ OP ~ F ~ CP }
+// munit = { ^"MUNIT" ~ OP ~ F ~ CP }
+// odd = { ^"ODD" ~ OP ~ F ~ CP }
+// pi = { ^"PI" ~ OP ~ F ~ CP }
+// power = { ^"POWER" ~ OP ~ F ~ CP }
+// product = { ^"PRODUCT" ~ OP ~ F ~ CP }
+// quotient = { ^"QUOTIENT" ~ OP ~ F ~ CP }
+// radians = { ^"RADIANS" ~ OP ~ F ~ CP }
+// rand = { ^"RAND" ~ OP ~ F ~ CP }
+// randarray = { ^"RANDARRAY" ~ OP ~ F ~ CP }
+// randbetween = { ^"RANDBETWEEN" ~ OP ~ F ~ CP }
+// roman = { ^"ROMAN" ~ OP ~ F ~ CP }
+// round = { ^"ROUND" ~ OP ~ F ~ CP }
+// rounddown = { ^"ROUNDDOWN" ~ OP ~ F ~ CP }
+// roundup = { ^"ROUNDUP" ~ OP ~ F ~ CP }
+// sec = { ^"SEC" ~ OP ~ F ~ CP }
+// sech = { ^"SECH" ~ OP ~ F ~ CP }
+// sequence = { ^"SEQUENCE" ~ OP ~ F ~ CP }
+// seriessum = { ^"SERIESSUM" ~ OP ~ F ~ CP }
+// sign = { ^"SIGN" ~ OP ~ F ~ CP }
+// sin = { ^"SIN" ~ OP ~ F ~ CP }
+// sinh = { ^"SINH" ~ OP ~ F ~ CP }
+// sqrt = { ^"SQRT" ~ OP ~ F ~ CP }
+// sqrtpi = { ^"SQRTPI" ~ OP ~ F ~ CP }
+// subtotal = { ^"SUBTOTAL" ~ OP ~ F ~ CP }
+// sum = { ^"SUM" ~ OP ~ F ~ CP }
+// sumif = { ^"SUMIF" ~ OP ~ F ~ CP }
+// sumifs = { ^"SUMIFS" ~ OP ~ F ~ CP }
+// sumproduct = { ^"SUMPRODUCT" ~ OP ~ F ~ CP }
+// sumsq = { ^"SUMSQ" ~ OP ~ F ~ CP }
+// sumx2my2 = { ^"SUMX2MY2" ~ OP ~ F ~ CP }
+// sumx2py2 = { ^"SUMX2PY2" ~ OP ~ F ~ CP }
+// sumxmy2 = { ^"SUMXMY2" ~ OP ~ F ~ CP }
+// tan = { ^"TAN" ~ OP ~ F ~ CP }
+// tanh = { ^"TANH" ~ OP ~ F ~ CP }
+// trunc = { ^"TRUNC" ~ OP ~ F ~ CP }
+// math_functions = _{
+// 	abs
+// 	| acos
+// 	| acosh
+// 	| acot
+// 	| acoth
+// 	| aggregate
+// 	| arabic
+// 	| asin
+// 	| asinh
+// 	| atan
+// 	| atan2
+// 	| atanh
+// 	| base
+// 	| ceiling_math
+// 	| ceiling_precise
+// 	| combin
+// 	| combina
+// 	| cos
+// 	| cosh
+// 	| cot
+// 	| coth
+// 	| csc
+// 	| csch
+// 	| decimal
+// 	| degrees
+// 	| even
+// 	| exp
+// 	| fact
+// 	| factdouble
+// 	| floor_math
+// 	| floor_precise
+// 	| gcd
+// 	| int
+// 	| iso_ceiling
+// 	| lcm
+// 	| ln
+// 	| log
+// 	| log10
+// 	| mdeterm
+// 	| minverse
+// 	| mmult
+// 	| mod_
+// 	| mround
+// 	| multinomial
+// 	| munit
+// 	| odd
+// 	| pi
+// 	| power
+// 	| product
+// 	| quotient
+// 	| radians
+// 	| rand
+// 	| randarray
+// 	| randbetween
+// 	| roman
+// 	| round
+// 	| rounddown
+// 	| roundup
+// 	| sec
+// 	| sech
+// 	| sequence
+// 	| seriessum
+// 	| sign
+// 	| sin
+// 	| sinh
+// 	| sqrt
+// 	| sqrtpi
+// 	| subtotal
+// 	| sum
+// 	| sumif
+// 	| sumifs
+// 	| sumproduct
+// 	| sumsq
+// 	| sumx2my2
+// 	| sumx2py2
+// 	| sumxmy2
+// 	| tan
+// 	| tanh
+// 	| trunc
+// }
+
+// Statistical functions
+// avedev = { ^"AVEDEV" ~ OP ~ F ~ CP }
+// average = { ^"AVERAGE" ~ OP ~ F ~ CP }
+// averagea = { ^"AVERAGEA" ~ OP ~ F ~ CP }
+// averageif = { ^"AVERAGEIF" ~ OP ~ F ~ CP }
+// averageifs = { ^"AVERAGEIFS" ~ OP ~ F ~ CP }
+// beta_dist = { ^"BETA.DIST" ~ OP ~ F ~ CP }
+// beta_inv = { ^"BETA.INV" ~ OP ~ F ~ CP }
+// binom_dist = { ^"BINOM.DIST" ~ OP ~ F ~ CP }
+// binom_dist_range = { ^"BINOM.DIST.RANGE" ~ OP ~ F ~ CP }
+// binom_inv = { ^"BINOM.INV" ~ OP ~ F ~ CP }
+// chisq_dist = { ^"CHISQ.DIST" ~ OP ~ F ~ CP }
+// chisq_dist_rt = { ^"CHISQ.DIST.RT" ~ OP ~ F ~ CP }
+// chisq_inv = { ^"CHISQ.INV" ~ OP ~ F ~ CP }
+// chisq_inv_rt = { ^"CHISQ.INV.RT" ~ OP ~ F ~ CP }
+// chisq_test = { ^"CHISQ.TEST" ~ OP ~ F ~ CP }
+// confidence_norm = { ^"CONFIDENCE.NORM" ~ OP ~ F ~ CP }
+// confidence_t = { ^"CONFIDENCE.T" ~ OP ~ F ~ CP }
+// correl = { ^"CORREL" ~ OP ~ F ~ CP }
+// count = { ^"COUNT" ~ OP ~ F ~ CP }
+// counta = { ^"COUNTA" ~ OP ~ F ~ CP }
+// countblank = { ^"COUNTBLANK" ~ OP ~ F ~ CP }
+// countif = { ^"COUNTIF" ~ OP ~ F ~ CP }
+// countifs = { ^"COUNTIFS" ~ OP ~ F ~ CP }
+// covariance_p = { ^"COVARIANCE.P" ~ OP ~ F ~ CP }
+// covariance_s = { ^"COVARIANCE.S" ~ OP ~ F ~ CP }
+// devsq = { ^"DEVSQ" ~ OP ~ F ~ CP }
+// expon_dist = { ^"EXPON.DIST" ~ OP ~ F ~ CP }
+// f_dist = { ^"F.DIST" ~ OP ~ F ~ CP }
+// f_dist_rt = { ^"F.DIST.RT" ~ OP ~ F ~ CP }
+// f_inv = { ^"F.INV" ~ OP ~ F ~ CP }
+// f_inv_rt = { ^"F.INV.RT" ~ OP ~ F ~ CP }
+// fisher = { ^"FISHER" ~ OP ~ F ~ CP }
+// fisherinv = { ^"FISHERINV" ~ OP ~ F ~ CP }
+// forecast = { ^"FORECAST" ~ OP ~ F ~ CP }
+// forecast_ets = { ^"FORECAST.ETS" ~ OP ~ F ~ CP }
+// forecast_ets_confint = { ^"FORECAST.ETS.CONFINT" ~ OP ~ F ~ CP }
+// forecast_ets_seasonality = { ^"FORECAST.ETS.SEASONALITY" ~ OP ~ F ~ CP }
+// forecast_ets_stat = { ^"FORECAST.ETS.STAT" ~ OP ~ F ~ CP }
+// forecast_linear = { ^"FORECAST.LINEAR" ~ OP ~ F ~ CP }
+// frequency = { ^"FREQUENCY" ~ OP ~ F ~ CP }
+// f_test = { ^"F.TEST" ~ OP ~ F ~ CP }
+// gamma = { ^"GAMMA" ~ OP ~ F ~ CP }
+// gamma_dist = { ^"GAMMA.DIST" ~ OP ~ F ~ CP }
+// gamma_inv = { ^"GAMMA.INV" ~ OP ~ F ~ CP }
+// gammaln = { ^"GAMMALN" ~ OP ~ F ~ CP }
+// gammaln_precise = { ^"GAMMALN.PRECISE" ~ OP ~ F ~ CP }
+// gauss = { ^"GAUSS" ~ OP ~ F ~ CP }
+// geomean = { ^"GEOMEAN" ~ OP ~ F ~ CP }
+// growth = { ^"GROWTH" ~ OP ~ F ~ CP }
+// harmean = { ^"HARMEAN" ~ OP ~ F ~ CP }
+// hypgeom_dist = { ^"HYPGEOM.DIST" ~ OP ~ F ~ CP }
+// intercept = { ^"INTERCEPT" ~ OP ~ F ~ CP }
+// kurt = { ^"KURT" ~ OP ~ F ~ CP }
+// large = { ^"LARGE" ~ OP ~ F ~ CP }
+// linest = { ^"LINEST" ~ OP ~ F ~ CP }
+// logest = { ^"LOGEST" ~ OP ~ F ~ CP }
+// lognorm_dist = { ^"LOGNORM.DIST" ~ OP ~ F ~ CP }
+// lognorm_inv = { ^"LOGNORM.INV" ~ OP ~ F ~ CP }
+// max = { ^"MAX" ~ OP ~ F ~ CP }
+// maxa = { ^"MAXA" ~ OP ~ F ~ CP }
+// maxifs = { ^"MAXIFS" ~ OP ~ F ~ CP }
+// median = { ^"MEDIAN" ~ OP ~ F ~ CP }
+// min = { ^"MIN" ~ OP ~ F ~ CP }
+// minifs = { ^"MINIFS" ~ OP ~ F ~ CP }
+// mina = { ^"MINA" ~ OP ~ F ~ CP }
+// mode_mult = { ^"MODE.MULT" ~ OP ~ F ~ CP }
+// mode_sngl = { ^"MODE.SNGL" ~ OP ~ F ~ CP }
+// negbinom_dist = { ^"NEGBINOM.DIST" ~ OP ~ F ~ CP }
+// norm_dist = { ^"NORM.DIST" ~ OP ~ F ~ CP }
+// norminv = { ^"NORMINV" ~ OP ~ F ~ CP }
+// norm_s_dist = { ^"NORM.S.DIST" ~ OP ~ F ~ CP }
+// norm_s_inv = { ^"NORM.S.INV" ~ OP ~ F ~ CP }
+// pearson = { ^"PEARSON" ~ OP ~ F ~ CP }
+// percentile_exc = { ^"PERCENTILE.EXC" ~ OP ~ F ~ CP }
+// percentile_inc = { ^"PERCENTILE.INC" ~ OP ~ F ~ CP }
+// percentrank_exc = { ^"PERCENTRANK.EXC" ~ OP ~ F ~ CP }
+// percentrank_inc = { ^"PERCENTRANK.INC" ~ OP ~ F ~ CP }
+// permut = { ^"PERMUT" ~ OP ~ F ~ CP }
+// permutationa = { ^"PERMUTATIONA" ~ OP ~ F ~ CP }
+// phi = { ^"PHI" ~ OP ~ F ~ CP }
+// poisson_dist = { ^"POISSON.DIST" ~ OP ~ F ~ CP }
+// prob = { ^"PROB" ~ OP ~ F ~ CP }
+// quartile_exc = { ^"QUARTILE.EXC" ~ OP ~ F ~ CP }
+// quartile_inc = { ^"QUARTILE.INC" ~ OP ~ F ~ CP }
+// rank_avg = { ^"RANK.AVG" ~ OP ~ F ~ CP }
+// rank_eq = { ^"RANK.EQ" ~ OP ~ F ~ CP }
+// rsq = { ^"RSQ" ~ OP ~ F ~ CP }
+// skew = { ^"SKEW" ~ OP ~ F ~ CP }
+// skew_p = { ^"SKEW.P" ~ OP ~ F ~ CP }
+// slope = { ^"SLOPE" ~ OP ~ F ~ CP }
+// small = { ^"SMALL" ~ OP ~ F ~ CP }
+// standardize = { ^"STANDARDIZE" ~ OP ~ F ~ CP }
+// stdev_p = { ^"STDEV.P" ~ OP ~ F ~ CP }
+// stdev_s = { ^"STDEV.S" ~ OP ~ F ~ CP }
+// stdeva = { ^"STDEVA" ~ OP ~ F ~ CP }
+// stdevpa = { ^"STDEVPA" ~ OP ~ F ~ CP }
+// steyx = { ^"STEYX" ~ OP ~ F ~ CP }
+// t_dist = { ^"T.DIST" ~ OP ~ F ~ CP }
+// t_dist_2t = { ^"T.DIST.2T" ~ OP ~ F ~ CP }
+// t_dist_rt = { ^"T.DIST.RT" ~ OP ~ F ~ CP }
+// t_inv = { ^"T.INV" ~ OP ~ F ~ CP }
+// t_inv_2t = { ^"T.INV.2T" ~ OP ~ F ~ CP }
+// trend = { ^"TREND" ~ OP ~ F ~ CP }
+// trimmean = { ^"TRIMMEAN" ~ OP ~ F ~ CP }
+// t_test = { ^"T.TEST" ~ OP ~ F ~ CP }
+// var_p = { ^"VAR.P" ~ OP ~ F ~ CP }
+// var_s = { ^"VAR.S" ~ OP ~ F ~ CP }
+// vara = { ^"VARA" ~ OP ~ F ~ CP }
+// varpa = { ^"VARPA" ~ OP ~ F ~ CP }
+// weibull_dist = { ^"WEIBULL.DIST" ~ OP ~ F ~ CP }
+// z_test = { ^"Z.TEST" ~ OP ~ F ~ CP }
+// statistical_functions = {
+// 	avedev |
+//     average |
+//     averagea |
+//     averageif |
+//     averageifs |
+//     beta_dist |
+//     beta_inv |
+//     binom_dist |
+//     binom_dist_range |
+//     binom_inv |
+//     chisq_dist |
+//     chisq_dist_rt |
+//     chisq_inv |
+//     chisq_inv_rt |
+//     chisq_test |
+//     confidence_norm |
+//     confidence_t |
+//     correl |
+//     count |
+//     counta |
+//     countblank |
+//     countif |
+//     countifs |
+//     covariance_p |
+//     covariance_s |
+//     devsq |
+//     expon_dist |
+//     f_dist |
+//     f_dist_rt |
+//     f_inv |
+//     f_inv_rt |
+//     fisher |
+//     fisherinv |
+//     forecast |
+//     forecast_ets |
+//     forecast_ets_confint |
+//     forecast_ets_seasonality |
+//     forecast_ets_stat |
+//     forecast_linear |
+//     frequency |
+//     f_test |
+//     gamma |
+//     gamma_dist |
+//     gamma_inv |
+//     gammaln |
+//     gammaln_precise |
+//     gauss |
+//     geomean |
+//     growth |
+//     harmean |
+//     hypgeom_dist |
+//     intercept |
+//     kurt |
+//     large |
+//     linest |
+//     logest |
+//     lognorm_dist |
+//     lognorm_inv |
+//     max |
+//     maxa |
+//     maxifs |
+//     median |
+//     min |
+//     minifs |
+//     mina |
+//     mode_mult |
+//     mode_sngl |
+//     negbinom_dist |
+//     norm_dist |
+//     norminv |
+//     norm_s_dist |
+//     norm_s_inv |
+//     pearson |
+//     percentile_exc |
+//     percentile_inc |
+//     percentrank_exc |
+//     percentrank_inc |
+//     permut |
+//     permutationa |
+//     phi |
+//     poisson_dist |
+//     prob |
+//     quartile_exc |
+//     quartile_inc |
+//     rank_avg |
+//     rank_eq |
+//     rsq |
+//     skew |
+//     skew_p |
+//     slope |
+//     small |
+//     standardize |
+//     stdev_p |
+//     stdev_s |
+//     stdeva |
+//     stdevpa |
+//     steyx |
+//     t_dist |
+//     t_dist_2t |
+//     t_dist_rt |
+//     t_inv |
+//     t_inv_2t |
+//     trend |
+//     trimmean |
+//     t_test |
+//     var_p |
+//     var_s |
+//     vara |
+//     varpa |
+//     weibull_dist |
+//     z_test
+// }
+
+// Web functions
+// encodeurl = { ^"ENCODEURL" ~ OP ~ F ~ CP }
+// filterxml = { ^"FILTERXML" ~ OP ~ F ~ CP }
+// webservice = { ^"WEBSERVICE" ~ OP ~ F ~ CP }
+// web_functions = {
+// 	encodeurl |
+// 	filterxml |
+// 	webservice
+// }
+
+formula = _{
+	basic_types
+	| datetime_functions
+	| text_functions
+// 	| engineering_functions
+// 	| financial_functions
+// 	| logical_functions
+// 	| math_functions
+// 	| statistical_functions
+// 	| web_functions
+}

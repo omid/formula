@@ -1,0 +1,18 @@
+[package]
+name = "formula"
+description = "Implementation of most Excel functions"
+version = "0.0.1"
+edition = "2021"
+license-file = "LICENSE"
+keywords = ["excel", "formula", "spreadsheet", "parser"]
+categories = ["parser-implementations"]
+readme = "README.md"
+repository = "https://github.com/omid/formula"
+
+[dependencies]
+anyhow = "1.0.62"
+chrono = "0.4.22"
+chronoutil = "0.2.3"
+pest = "2.2.1"
+pest_derive = "2.2.1"
+thiserror = "1.0.32"
