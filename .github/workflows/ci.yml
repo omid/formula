@@ -1,0 +1,58 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Format
+        run: |
+          cargo fmt -- --check
+      - name: Linting
+        run: |
+          cargo clippy -- -D warnings
+      - name: Cargo Doc
+        run: |
+          cargo doc --no-deps --all-features --examples
+
+  test:
+    needs: lints
+    runs-on: ${{ matrix.target.os }}
+    name: ${{ matrix.target.name }} / ${{ matrix.version }}
+    strategy:
+      matrix:
+        target:
+        - { name: Linux, os: ubuntu-latest, triple: x86_64-unknown-linux-gnu }
+        - { name: macOS, os: macos-latest, triple: x86_64-apple-darwin }
+        - { name: Windows, os: windows-2022, triple: x86_64-pc-windows-msvc }
+        version:
+        - 1.57.0 # MSRV
+        - stable
+        - nightly
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install ${{ matrix.version }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.version }}-${{ matrix.target.triple }}
+          profile: minimal
+          override: true
+      - name: Run tests
+        run: |
+          cargo test --all-features --all-targets
+
+  audit:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Audit
+        run: |
+          cargo update
+          cargo audit
+        continue-on-error: true

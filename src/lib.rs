@@ -1,12 +1,11 @@
 mod error;
 mod parsers;
 
-use crate::parsers::date_and_time::*;
+use crate::parsers::{date_and_time::*, text::*};
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use pest::iterators::Pair;
 use pest_derive::Parser;
-use crate::parsers::text::*;
 
 #[derive(Parser, Debug)]
 #[grammar = "formula.pest"]
