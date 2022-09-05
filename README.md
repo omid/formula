@@ -1,7 +1,7 @@
 # formula
 
 [![Crates.io](https://img.shields.io/crates/v/formula.svg)](https://crates.io/crates/formula)
-[![Workflow Status](https://github.com/omid/formula/workflows/main/badge.svg)](https://github.com/omid/formula/actions?query=workflow%3A%22ci%22)
+[![Workflow Status](https://github.com/omid/formula/workflows/ci/badge.svg)](https://github.com/omid/formula/actions?query=workflow%3A%22ci%22)
 
 <p align="center">
   <strong style="font-size: 50px"><em>Formula</em></strong>
