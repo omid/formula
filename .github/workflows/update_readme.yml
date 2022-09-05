@@ -1,0 +1,17 @@
+name: update_readme
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  generate_readme:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Cargo readme
+      run: cargo install cargo-readme
+    - name: Commit the changes
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Update README.md
+        file_pattern: README.md export/*

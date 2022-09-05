@@ -10,9 +10,9 @@ readme = "README.md"
 repository = "https://github.com/omid/formula"
 
 [dependencies]
-anyhow = "1.0.62"
+anyhow = "1.0.64"
 chrono = "0.4.22"
 chronoutil = "0.2.3"
 pest = "2.3.0"
 pest_derive = "2.3.0"
-thiserror = "1.0.32"
+thiserror = "1.0.34"

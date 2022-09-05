@@ -1,5 +1,3 @@
-// ^([A-Z]*)$
-// \L$1 = { ^"\U$1" ~ OP ~ F ~ CP }
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 OP = _{ "(" } // open parenthesis
@@ -23,6 +21,7 @@ num = @{
     ~ ("." ~ ASCII_DIGIT*)?
     ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
+// expr = @{ !(",")+ }
 bool_true = { ^"true" | ^"true" ~ OP ~ CP }
 bool_false = { ^"false" | ^"false" ~ OP ~ CP }
 basic_types = _{ string | num | bool_true | bool_false }
@@ -402,7 +401,6 @@ text_functions = _{
 // and = { ^"AND" ~ OP ~ F ~ CP }
 // bycol = { ^"BYCOL" ~ OP ~ F ~ CP }
 // byrow = { ^"BYROW" ~ OP ~ F ~ CP }
-// false_ = { ^"FALSE" ~ OP ~ F ~ CP }
 // if_ = { ^"IF" ~ OP ~ F ~ CP }
 // iferror = { ^"IFERROR" ~ OP ~ F ~ CP }
 // ifna = { ^"IFNA" ~ OP ~ F ~ CP }
@@ -416,13 +414,11 @@ text_functions = _{
 // reduce = { ^"REDUCE" ~ OP ~ F ~ CP }
 // scan = { ^"SCAN" ~ OP ~ F ~ CP }
 // switch = { ^"SWITCH" ~ OP ~ F ~ CP }
-// true_ = { ^"TRUE" ~ OP ~ F ~ CP }
 // xor = { ^"XOR" ~ OP ~ F ~ CP }
 // logical_functions = _{
 // 	and
 // 	| bycol
 // 	| byrow
-// 	| false_
 // 	| if_
 // 	| iferror
 // 	| ifna
@@ -436,7 +432,6 @@ text_functions = _{
 // 	| reduce
 // 	| scan
 // 	| switch
-// 	| true_
 // 	| xor
 // }
 

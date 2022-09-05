@@ -1,5 +1,7 @@
 test:
 	@cargo test -- --nocapture
+	@cargo doc --no-deps --all-features --examples
+	@cargo test --doc -- --show-output
 
 check:
 	@cargo +nightly fmt
