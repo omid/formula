@@ -1,5 +1,3 @@
-# formula
-
 [![Crates.io](https://img.shields.io/crates/v/formula.svg)](https://crates.io/crates/formula)
 [![Workflow Status](https://github.com/omid/formula/workflows/ci/badge.svg)](https://github.com/omid/formula/actions?query=workflow%3A%22ci%22)
 
