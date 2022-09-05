@@ -2,13 +2,11 @@
 [![Crates.io](https://img.shields.io/crates/v/formula.svg)](https://crates.io/crates/formula)
 [![Workflow Status](https://github.com/omid/formula/workflows/ci/badge.svg)](https://github.com/omid/formula/actions?query=workflow%3A%22ci%22)
 
-<p align="center">
-  <strong style="font-size: 50px"><em>Formula</em></strong>
-</p>
+<h1 align="center"><em>Formula</em></h1>
 
-<p align="center">
-  <strong>A parser and evaluator of spreadsheet-like formulas</strong>
-</p>
+<h3 align="center">
+  A parser and evaluator of spreadsheet-like formulas
+</h3>
 
 It's in its early stages, and we are trying to add more functions and features soon.
 

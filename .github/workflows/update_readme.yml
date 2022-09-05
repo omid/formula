@@ -10,7 +10,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Cargo readme
-      run: cargo install cargo-readme && cargo readme --no-title > README.md
+      run: cargo install cargo-readme
+    - name: Run Cargo readme
+      run: cargo readme --no-title > README.md
     - name: Commit the changes
       uses: stefanzweifel/git-auto-commit-action@v4
       with:

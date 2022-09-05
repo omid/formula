@@ -1,6 +1,6 @@
 [package]
 name = "formula"
-description = "Implementation of most Excel functions"
+description = "A parser and evaluator of spreadsheet-like formulas"
 version = "0.0.1"
 edition = "2021"
 license-file = "LICENSE.md"
