@@ -2,7 +2,7 @@ name: update_readme
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   generate_readme:
