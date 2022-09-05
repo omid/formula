@@ -23,9 +23,10 @@ Add this library to your project with `cargo add formula` or add `formula = "*"`
 Use it similar to the following code:
 
 ```rust
-use formula::{Formula, Expr, E};
+use formula::{Formula, Expr, error::Error};
+use anyhow::Result;
 
-fn main() -> Result<(), FormulaError> {
+fn main() -> Result<()> {
     let formula = Formula::new("UPPER(TRIM('   Hello '))")?;
     let value = formula.parse().unwrap();
     assert_eq!(value, Expr::String("HELLO".to_string()));
