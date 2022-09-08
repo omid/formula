@@ -21,10 +21,39 @@ num = @{
     ~ ("." ~ ASCII_DIGIT*)?
     ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
-// expr = @{ !(",")+ }
-bool_true = { ^"true" | ^"true" ~ OP ~ CP }
-bool_false = { ^"false" | ^"false" ~ OP ~ CP }
+bool_true = { ^"true" ~ OP ~ CP | ^"true" }
+bool_false = { ^"false" ~ OP ~ CP | ^"false" }
 basic_types = _{ string | num | bool_true | bool_false }
+
+// Operators
+add = { ^"F.ADD" ~ OP ~ F ~ CF ~ CP }
+div = { ^"F.DIV" ~ OP ~ F ~ CF ~ CP }
+eq = { ^"F.EQ" ~ OP ~ F ~ CF ~ CP }
+lte = { ^"F.LTE" ~ OP ~ F ~ CF ~ CP }
+lt = { ^"F.LT" ~ OP ~ F ~ CF ~ CP }
+gte = { ^"F.GTE" ~ OP ~ F ~ CF ~ CP }
+gt = { ^"F.GT" ~ OP ~ F ~ CF ~ CP }
+sub = { ^"F.SUB" ~ OP ~ F ~ CF ~ CP }
+mul = { ^"F.MUL" ~ OP ~ F ~ CF ~ CP }
+ne = { ^"F.NE" ~ OP ~ F ~ CF ~ CP }
+pow = { ^"F.POW" ~ OP ~ F ~ CF ~ CP }
+percent = { ^"F.PERCENT" ~ OP ~ F ~ CP }
+negate = { ^"F.NEGATE" ~ OP ~ F ~ CP }
+operators = _{
+    add
+    | div
+    | eq
+    | lte
+    | lt
+    | gte
+    | gt
+    | sub
+    | mul
+    | ne
+    | pow
+    | percent
+    | negate
+}
 
 // Excel functions
 // Date & Time functions
@@ -54,29 +83,29 @@ yearfrac = { ^"YEARFRAC" ~ OP ~ F ~ CF ~ CF? ~ CP }
 now = { ^"NOW" ~ OP ~ CP }
 today = { ^"TODAY" ~ OP ~ CP }
 datetime_functions = _{
-	date
-	| time
-	| datevalue
-	| timevalue
-	| datediff
-	| year
-	| month
-	| day
-	| days
-	| days360
-	| edate
-	| eomonth
-	| hour
-	| minute
-	| second
-	| networkdays
-	| networkdaysintl
-	| weekday
-	| weeknum
-	| isoweeknum
-	| yearfrac
-	| now
-	| today
+    date
+    | time
+    | datevalue
+    | timevalue
+    | datediff
+    | year
+    | month
+    | day
+    | days
+    | days360
+    | edate
+    | eomonth
+    | hour
+    | minute
+    | second
+    | networkdays
+    | networkdaysintl
+    | weekday
+    | weeknum
+    | isoweeknum
+    | yearfrac
+    | now
+    | today
 }
 
 // Text functions
@@ -126,51 +155,51 @@ upper = { ^"UPPER" ~ OP ~ F ~ CP }
 value = { ^"VALUE" ~ OP ~ F ~ CP }
 valuetotext = { ^"VALUETOTEXT" ~ OP ~ F ~ CF? ~ CP }
 text_functions = _{
-	left
-	| leftb
-	| arraytotext
-	| asc
-	| bahttext
-	| char
-	| clean
-	| code
-	| concat
-	| concatenate
-	| dbcs
-	| dollar
-	| exact
-	| find
-	| findb
-	| fixed
-	| jis
-	| len
-	| lenb
-	| lower
-	| mid
-	| midb
-	| numbervalue
-	| phonetic
-	| proper
-	| replace
-	| replaceb
-	| rept
-	| right
-	| rightb
-	| search
-	| searchb
-	| substitute
-	| t
-	| text
-	| textafter
-	| textbefore
-	| textjoin
-	| textsplit
-	| trim
-	| unichar
-	| unicode
-	| upper
-	| value
-	| valuetotext
+    left
+    | leftb
+    | arraytotext
+    | asc
+    | bahttext
+    | char
+    | clean
+    | code
+    | concat
+    | concatenate
+    | dbcs
+    | dollar
+    | exact
+    | find
+    | findb
+    | fixed
+    | jis
+    | len
+    | lenb
+    | lower
+    | mid
+    | midb
+    | numbervalue
+    | phonetic
+    | proper
+    | replace
+    | replaceb
+    | rept
+    | right
+    | rightb
+    | search
+    | searchb
+    | substitute
+    | t
+    | text
+    | textafter
+    | textbefore
+    | textjoin
+    | textsplit
+    | trim
+    | unichar
+    | unicode
+    | upper
+    | value
+    | valuetotext
 }
 
 // Engineering functions
@@ -229,60 +258,60 @@ text_functions = _{
 // oct2dec = { ^"OCT2DEC" ~ OP ~ F ~ CP }
 // oct2hex = { ^"OCT2HEX" ~ OP ~ F ~ CP }
 // engineering_functions = _{
-// 	besseli
-// 	| besselj
-// 	| besselk
-// 	| bessely
-// 	| bin2dec
-// 	| bin2hex
-// 	| bin2oct
-// 	| bitand
-// 	| bitlshift
-// 	| bitor
-// 	| bitrshift
-// 	| bitxor
-// 	| complex
-// 	| convert
-// 	| dec2bin
-// 	| dec2hex
-// 	| dec2oct
-// 	| delta
-// 	| erf
-// 	| erf_precise
-// 	| erfc
-// 	| erfc_precise
-// 	| gestep
-// 	| hex2bin
-// 	| hex2dec
-// 	| hex2oct
-// 	| imabs
-// 	| imaginary
-// 	| imargument
-// 	| imconjugate
-// 	| imcos
-// 	| imcosh
-// 	| imcot
-// 	| imcsc
-// 	| imcsch
-// 	| imdiv
-// 	| imexp
-// 	| imln
-// 	| imlog10
-// 	| imlog2
-// 	| impower
-// 	| improduct
-// 	| imreal
-// 	| imsec
-// 	| imsech
-// 	| imsin
-// 	| imsinh
-// 	| imsqrt
-// 	| imsub
-// 	| imsum
-// 	| imtan
-// 	| oct2bin
-// 	| oct2dec
-// 	| oct2hex
+//     besseli
+//     | besselj
+//     | besselk
+//     | bessely
+//     | bin2dec
+//     | bin2hex
+//     | bin2oct
+//     | bitand
+//     | bitlshift
+//     | bitor
+//     | bitrshift
+//     | bitxor
+//     | complex
+//     | convert
+//     | dec2bin
+//     | dec2hex
+//     | dec2oct
+//     | delta
+//     | erf
+//     | erf_precise
+//     | erfc
+//     | erfc_precise
+//     | gestep
+//     | hex2bin
+//     | hex2dec
+//     | hex2oct
+//     | imabs
+//     | imaginary
+//     | imargument
+//     | imconjugate
+//     | imcos
+//     | imcosh
+//     | imcot
+//     | imcsc
+//     | imcsch
+//     | imdiv
+//     | imexp
+//     | imln
+//     | imlog10
+//     | imlog2
+//     | impower
+//     | improduct
+//     | imreal
+//     | imsec
+//     | imsech
+//     | imsin
+//     | imsinh
+//     | imsqrt
+//     | imsub
+//     | imsum
+//     | imtan
+//     | oct2bin
+//     | oct2dec
+//     | oct2hex
 // }
 
 // Financial functions
@@ -342,98 +371,98 @@ text_functions = _{
 // yielddisc = { ^"YIELDDISC" ~ OP ~ F ~ CP }
 // yieldmat = { ^"YIELDMAT" ~ OP ~ F ~ CP }
 // financial_functions = _{
-// 	accrint
-// 	| accrintm
-// 	| amordegrc
-// 	| amorlinc
-// 	| coupdaybs
-// 	| coupdays
-// 	| coupdaysnc
-// 	| coupncd
-// 	| coupnum
-// 	| couppcd
-// 	| cumipmt
-// 	| cumprinc
-// 	| db
-// 	| ddb
-// 	| disc
-// 	| duration
-// 	| effect
-// 	| fv
-// 	| fvschedule
-// 	| intrate
-// 	| ipmt
-// 	| irr
-// 	| ispmt
-// 	| mduration
-// 	| mirr
-// 	| nominal
-// 	| nper
-// 	| npv
-// 	| oddfprice
-// 	| oddfyield
-// 	| oddlprice
-// 	| oddlyield
-// 	| pduration
-// 	| pmt
-// 	| ppmt
-// 	| price
-// 	| pricedisc
-// 	| pricemat
-// 	| pv
-// 	| rate
-// 	| received
-// 	| rri
-// 	| sln
-// 	| stockhistory
-// 	| syd
-// 	| tbilleq
-// 	| tbillprice
-// 	| tbillyield
-// 	| vdb
-// 	| xirr
-// 	| yield_
-// 	| yielddisc
-// 	| yieldmat
+//     accrint
+//     | accrintm
+//     | amordegrc
+//     | amorlinc
+//     | coupdaybs
+//     | coupdays
+//     | coupdaysnc
+//     | coupncd
+//     | coupnum
+//     | couppcd
+//     | cumipmt
+//     | cumprinc
+//     | db
+//     | ddb
+//     | disc
+//     | duration
+//     | effect
+//     | fv
+//     | fvschedule
+//     | intrate
+//     | ipmt
+//     | irr
+//     | ispmt
+//     | mduration
+//     | mirr
+//     | nominal
+//     | nper
+//     | npv
+//     | oddfprice
+//     | oddfyield
+//     | oddlprice
+//     | oddlyield
+//     | pduration
+//     | pmt
+//     | ppmt
+//     | price
+//     | pricedisc
+//     | pricemat
+//     | pv
+//     | rate
+//     | received
+//     | rri
+//     | sln
+//     | stockhistory
+//     | syd
+//     | tbilleq
+//     | tbillprice
+//     | tbillyield
+//     | vdb
+//     | xirr
+//     | yield_
+//     | yielddisc
+//     | yieldmat
 // }
 
 // Logical functions
-// and = { ^"AND" ~ OP ~ F ~ CP }
-// bycol = { ^"BYCOL" ~ OP ~ F ~ CP }
-// byrow = { ^"BYROW" ~ OP ~ F ~ CP }
-// if_ = { ^"IF" ~ OP ~ F ~ CP }
-// iferror = { ^"IFERROR" ~ OP ~ F ~ CP }
-// ifna = { ^"IFNA" ~ OP ~ F ~ CP }
-// ifs = { ^"IFS" ~ OP ~ F ~ CP }
-// lambda = { ^"LAMBDA" ~ OP ~ F ~ CP }
-// let_ = { ^"LET" ~ OP ~ F ~ CP }
-// makearray = { ^"MAKEARRAY" ~ OP ~ F ~ CP }
-// map = { ^"MAP" ~ OP ~ F ~ CP }
-// not = { ^"NOT" ~ OP ~ F ~ CP }
-// or = { ^"OR" ~ OP ~ F ~ CP }
-// reduce = { ^"REDUCE" ~ OP ~ F ~ CP }
-// scan = { ^"SCAN" ~ OP ~ F ~ CP }
-// switch = { ^"SWITCH" ~ OP ~ F ~ CP }
-// xor = { ^"XOR" ~ OP ~ F ~ CP }
-// logical_functions = _{
-// 	and
-// 	| bycol
-// 	| byrow
-// 	| if_
-// 	| iferror
-// 	| ifna
-// 	| ifs
-// 	| lambda
-// 	| let_
-// 	| makearray
-// 	| map
-// 	| not
-// 	| or
-// 	| reduce
-// 	| scan
-// 	| switch
-// 	| xor
-// }
+and = { ^"AND" ~ OP ~ F ~ CF* ~ CP }
+bycol = { ^"BYCOL" ~ OP ~ F ~ CP }
+byrow = { ^"BYROW" ~ OP ~ F ~ CP }
+if_ = { ^"IF" ~ OP ~ F ~ CF ~ CF? ~ CP }
+iferror = { ^"IFERROR" ~ OP ~ F ~ CF ~ CP }
+ifna = { ^"IFNA" ~ OP ~ F ~ CF ~ CP }
+ifs = { ^"IFS" ~ OP ~ F ~ CF ~ CF* ~ CP }
+lambda = { ^"LAMBDA" ~ OP ~ F ~ CP }
+let_ = { ^"LET" ~ OP ~ F ~ CP }
+makearray = { ^"MAKEARRAY" ~ OP ~ F ~ CP }
+map = { ^"MAP" ~ OP ~ F ~ CP }
+not = { ^"NOT" ~ OP ~ F ~ CP }
+or = { ^"OR" ~ OP ~ F  ~ CF* ~ CP }
+reduce = { ^"REDUCE" ~ OP ~ F ~ CP }
+scan = { ^"SCAN" ~ OP ~ F ~ CP }
+switch = { ^"SWITCH" ~ OP ~ F ~ CF ~ CF ~ CF* ~ CF ~ CP }
+xor = { ^"XOR" ~ OP ~ F ~ CF* ~ CP }
+logical_functions = _{
+    and
+    | bycol
+    | byrow
+    | if_
+    | iferror
+    | ifna
+    | ifs
+    | lambda
+    | let_
+    | makearray
+    | map
+    | not
+    | or
+    | reduce
+    | scan
+    | switch
+    | xor
+}
 
 // Math functions
 // abs = { ^"ABS" ~ OP ~ F ~ CP }
@@ -516,85 +545,85 @@ text_functions = _{
 // tanh = { ^"TANH" ~ OP ~ F ~ CP }
 // trunc = { ^"TRUNC" ~ OP ~ F ~ CP }
 // math_functions = _{
-// 	abs
-// 	| acos
-// 	| acosh
-// 	| acot
-// 	| acoth
-// 	| aggregate
-// 	| arabic
-// 	| asin
-// 	| asinh
-// 	| atan
-// 	| atan2
-// 	| atanh
-// 	| base
-// 	| ceiling_math
-// 	| ceiling_precise
-// 	| combin
-// 	| combina
-// 	| cos
-// 	| cosh
-// 	| cot
-// 	| coth
-// 	| csc
-// 	| csch
-// 	| decimal
-// 	| degrees
-// 	| even
-// 	| exp
-// 	| fact
-// 	| factdouble
-// 	| floor_math
-// 	| floor_precise
-// 	| gcd
-// 	| int
-// 	| iso_ceiling
-// 	| lcm
-// 	| ln
-// 	| log
-// 	| log10
-// 	| mdeterm
-// 	| minverse
-// 	| mmult
-// 	| mod_
-// 	| mround
-// 	| multinomial
-// 	| munit
-// 	| odd
-// 	| pi
-// 	| power
-// 	| product
-// 	| quotient
-// 	| radians
-// 	| rand
-// 	| randarray
-// 	| randbetween
-// 	| roman
-// 	| round
-// 	| rounddown
-// 	| roundup
-// 	| sec
-// 	| sech
-// 	| sequence
-// 	| seriessum
-// 	| sign
-// 	| sin
-// 	| sinh
-// 	| sqrt
-// 	| sqrtpi
-// 	| subtotal
-// 	| sum
-// 	| sumif
-// 	| sumifs
-// 	| sumproduct
-// 	| sumsq
-// 	| sumx2my2
-// 	| sumx2py2
-// 	| sumxmy2
-// 	| tan
-// 	| tanh
-// 	| trunc
+//     abs
+//     | acos
+//     | acosh
+//     | acot
+//     | acoth
+//     | aggregate
+//     | arabic
+//     | asin
+//     | asinh
+//     | atan
+//     | atan2
+//     | atanh
+//     | base
+//     | ceiling_math
+//     | ceiling_precise
+//     | combin
+//     | combina
+//     | cos
+//     | cosh
+//     | cot
+//     | coth
+//     | csc
+//     | csch
+//     | decimal
+//     | degrees
+//     | even
+//     | exp
+//     | fact
+//     | factdouble
+//     | floor_math
+//     | floor_precise
+//     | gcd
+//     | int
+//     | iso_ceiling
+//     | lcm
+//     | ln
+//     | log
+//     | log10
+//     | mdeterm
+//     | minverse
+//     | mmult
+//     | mod_
+//     | mround
+//     | multinomial
+//     | munit
+//     | odd
+//     | pi
+//     | power
+//     | product
+//     | quotient
+//     | radians
+//     | rand
+//     | randarray
+//     | randbetween
+//     | roman
+//     | round
+//     | rounddown
+//     | roundup
+//     | sec
+//     | sech
+//     | sequence
+//     | seriessum
+//     | sign
+//     | sin
+//     | sinh
+//     | sqrt
+//     | sqrtpi
+//     | subtotal
+//     | sum
+//     | sumif
+//     | sumifs
+//     | sumproduct
+//     | sumsq
+//     | sumx2my2
+//     | sumx2py2
+//     | sumxmy2
+//     | tan
+//     | tanh
+//     | trunc
 // }
 
 // Statistical functions
@@ -710,7 +739,7 @@ text_functions = _{
 // weibull_dist = { ^"WEIBULL.DIST" ~ OP ~ F ~ CP }
 // z_test = { ^"Z.TEST" ~ OP ~ F ~ CP }
 // statistical_functions = {
-// 	avedev |
+//     avedev |
 //     average |
 //     averagea |
 //     averageif |
@@ -824,23 +853,28 @@ text_functions = _{
 // }
 
 // Web functions
-// encodeurl = { ^"ENCODEURL" ~ OP ~ F ~ CP }
-// filterxml = { ^"FILTERXML" ~ OP ~ F ~ CP }
-// webservice = { ^"WEBSERVICE" ~ OP ~ F ~ CP }
-// web_functions = {
-// 	encodeurl |
-// 	filterxml |
-// 	webservice
-// }
+encodeurl = { ^"ENCODEURL" ~ OP ~ F ~ CP }
+filterxml = { ^"FILTERXML" ~ OP ~ F ~ CF ~ CP }
+webservice = { ^"WEBSERVICE" ~ OP ~ F ~ CP }
+web_functions = _{
+    encodeurl
+    | filterxml
+    | webservice
+}
 
 formula = _{
-	basic_types
-	| datetime_functions
-	| text_functions
-// 	| engineering_functions
-// 	| financial_functions
-// 	| logical_functions
-// 	| math_functions
-// 	| statistical_functions
-// 	| web_functions
+    basic_types
+    | operators
+    | datetime_functions
+    | text_functions
+//     | engineering_functions
+//     | financial_functions
+    | logical_functions
+//     | math_functions
+//     | statistical_functions
+    | web_functions
+}
+
+root = _{
+    "=" ~ formula
 }
