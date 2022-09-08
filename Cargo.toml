@@ -1,9 +1,9 @@
 [package]
 name = "formula"
 description = "A parser and evaluator of spreadsheet-like formulas"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
-license-file = "LICENSE.md"
+license = "MIT"
 keywords = ["excel", "formula", "spreadsheet", "parser"]
 categories = ["parser-implementations"]
 readme = "README.md"
@@ -15,4 +15,8 @@ chrono = "0.4.22"
 chronoutil = "0.2.3"
 pest = "2.3.0"
 pest_derive = "2.3.0"
+reqwest = { version = "0.11.11", features = ["blocking"] }
 thiserror = "1.0.34"
+urlencoding = "2.1.2"
+#sxd-xpath = "0.4.2"
+#sxd-document = "0.3.2"
