@@ -317,7 +317,10 @@ impl Formula<'_> {
 
                 if !no_commas {
                     // separate text with commas
-                    let num_and_decimal = text.split('.').map(std::string::ToString::to_string).collect::<Vec<_>>();
+                    let num_and_decimal = text
+                        .split('.')
+                        .map(std::string::ToString::to_string)
+                        .collect::<Vec<_>>();
                     let t = num_and_decimal[0]
                         .chars()
                         .rev()
