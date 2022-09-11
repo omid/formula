@@ -47,6 +47,11 @@ fn main() -> Result<()> {
 
 We would love to have your contribution! Please read our [contributing guidelines](CONTRIBUTING.md) to get started.
 
+## Inspired by
+
+- [formulajs](https://github.com/formulajs/formulajs)
+- [hyperformula](https://github.com/handsontable/hyperformula)
+
 ## License
 
 This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) file for more info.
