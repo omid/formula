@@ -13,6 +13,7 @@ So far we have the following features:
 
 - 18 date time functions
 - 26 text functions
+- 26 math functions
 - 7 logical functions
 - 2 web functions
 - plus all arithmetic and comparison operators
@@ -24,8 +25,7 @@ Add this library to your project with `cargo add formula` or add `formula = "*"`
 Use it similar to the following code:
 
 ```rust
-use formula::{Formula, Expr, error::Error};
-use anyhow::Result;
+use formula::{Formula, Expr, error::Error, Result};
 
 fn main() -> Result<()> {
     let formula = Formula::new("=UPPER(TRIM('   Hello '))")?;
@@ -45,6 +45,11 @@ fn main() -> Result<()> {
 ### Contributing
 
 We would love to have your contribution! Please read our [contributing guidelines](CONTRIBUTING.md) to get started.
+
+### Inspired by
+
+- [formulajs](https://github.com/formulajs/formulajs)
+- [hyperformula](https://github.com/handsontable/hyperformula)
 
 ### License
 
