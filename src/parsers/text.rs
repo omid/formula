@@ -1,5 +1,4 @@
-use crate::{error::Error, Expr, Formula, Rule};
-use anyhow::Result;
+use crate::{error::Error, Expr, Formula, Result, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -12,11 +11,11 @@ impl Formula<'_> {
         let text = match (text, num_chars) {
             (Expr::String(text), Expr::Number(chars)) => {
                 if chars < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 text.chars().take(chars as usize).collect()
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -30,13 +29,13 @@ impl Formula<'_> {
         let text = match (text, num_bytes) {
             (Expr::String(text), Expr::Number(bytes)) => {
                 if bytes < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
 
                 let text = text.bytes().take(bytes as usize).collect::<Vec<_>>();
                 String::from_utf8_lossy(&text).to_string()
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -50,7 +49,7 @@ impl Formula<'_> {
         let text = match (text, num_chars) {
             (Expr::String(text), Expr::Number(chars)) => {
                 if chars < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
 
                 let chars = chars as usize;
@@ -58,7 +57,7 @@ impl Formula<'_> {
                 let text = text.chars();
                 text.skip(start).collect()
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -72,7 +71,7 @@ impl Formula<'_> {
         let text = match (text, num_bytes) {
             (Expr::String(text), Expr::Number(bytes)) => {
                 if bytes < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
 
                 let bytes = bytes as usize;
@@ -81,7 +80,7 @@ impl Formula<'_> {
                 let text = text.skip(start).collect::<Vec<_>>();
                 String::from_utf8_lossy(&text).to_string()
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -96,11 +95,11 @@ impl Formula<'_> {
         let text = match (text, start, len) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len)) => {
                 if start < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 text.chars().skip((start as usize) - 1).take(len as usize).collect()
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -115,7 +114,7 @@ impl Formula<'_> {
         let text = match (text, start, len) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len)) => {
                 if start < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
 
                 let text = text
@@ -125,7 +124,7 @@ impl Formula<'_> {
                     .collect::<Vec<_>>();
                 String::from_utf8_lossy(&text).to_string()
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -137,7 +136,7 @@ impl Formula<'_> {
 
         let char = match number {
             Expr::Number(number) => (number as u8 as char).to_string(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(char))
     }
@@ -156,7 +155,7 @@ impl Formula<'_> {
                 .first()
                 .copied()
                 .ok_or_else(|| Error::Parser(rule_name.clone()))?,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(code)))
     }
@@ -172,12 +171,12 @@ impl Formula<'_> {
                 for t in texts {
                     match t {
                         Expr::String(t) => text.push_str(&t),
-                        _ => return Err(Error::Parser(rule_name).into()),
+                        _ => return Err(Error::Parser(rule_name)),
                     }
                 }
                 text
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -189,7 +188,7 @@ impl Formula<'_> {
         let text2 = Self::get_formula(&mut args, &rule_name)?;
         let exact = match (text1, text2) {
             (Expr::String(text1), Expr::String(text2)) => text1 == text2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(exact))
     }
@@ -204,7 +203,7 @@ impl Formula<'_> {
         let index = match (find_text, within_text, start_num) {
             (Expr::String(find_text), Expr::String(within_text), Expr::Number(start_num)) => {
                 if start_num < 1.0 || start_num > within_text.len() as f64 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 let start = (start_num - 1.0) as usize;
                 let within_text = within_text.chars().skip(start).map(|c| c as u8).collect::<Vec<_>>();
@@ -214,7 +213,7 @@ impl Formula<'_> {
                     .ok_or_else(|| Error::Parser(rule_name.clone()))?;
                 index as f64 + start as f64 + 1.0
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(index))
     }
@@ -229,7 +228,7 @@ impl Formula<'_> {
         let index = match (find_text, within_text, start_num) {
             (Expr::String(find_text), Expr::String(within_text), Expr::Number(start_num)) => {
                 if start_num < 1.0 || start_num > within_text.len() as f64 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 let start = (start_num - 1.0) as usize;
                 let within_text = &within_text[start..];
@@ -238,7 +237,7 @@ impl Formula<'_> {
                     .ok_or_else(|| Error::Parser(rule_name.clone()))?;
                 index as f64 + start as f64 + 1.0
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(index))
     }
@@ -253,7 +252,7 @@ impl Formula<'_> {
         let index = match (search_text, within_text, start_num) {
             (Expr::String(search_text), Expr::String(within_text), Expr::Number(start_num)) => {
                 if start_num < 1.0 || start_num > within_text.len() as f64 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 let search_text = search_text.to_lowercase();
                 let within_text = within_text.to_lowercase();
@@ -265,7 +264,7 @@ impl Formula<'_> {
                     .ok_or_else(|| Error::Parser(rule_name.clone()))?;
                 index as f64 + start as f64 + 1.0
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(index))
     }
@@ -280,7 +279,7 @@ impl Formula<'_> {
         let index = match (search_text, within_text, start_num) {
             (Expr::String(search_text), Expr::String(within_text), Expr::Number(start_num)) => {
                 if start_num < 1.0 || start_num > within_text.len() as f64 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 let search_text = search_text.to_lowercase();
                 let within_text = within_text.to_lowercase();
@@ -291,7 +290,7 @@ impl Formula<'_> {
                     .ok_or_else(|| Error::Parser(rule_name.clone()))?;
                 index as f64 + start as f64 + 1.0
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(index))
     }
@@ -352,7 +351,7 @@ impl Formula<'_> {
                 }
                 text
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -363,7 +362,7 @@ impl Formula<'_> {
         let text = Self::get_formula(&mut args, &rule_name)?;
         let len = match text {
             Expr::String(text) => text.chars().count() as f64,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(len))
     }
@@ -374,7 +373,7 @@ impl Formula<'_> {
         let text = Self::get_formula(&mut args, &rule_name)?;
         let len = match text {
             Expr::String(text) => text.len() as f64,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(len))
     }
@@ -385,7 +384,7 @@ impl Formula<'_> {
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
             Expr::String(text) => text.to_lowercase(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -396,7 +395,7 @@ impl Formula<'_> {
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
             Expr::String(text) => text.to_uppercase(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -409,11 +408,11 @@ impl Formula<'_> {
         let text = match (text, rept) {
             (Expr::String(text), Expr::Number(rept)) => {
                 if rept < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 text.repeat(rept as usize)
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -429,13 +428,13 @@ impl Formula<'_> {
         let text = match (text, start, len, new_text) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text)) => {
                 if start < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 let start_text = text.chars().take((start as usize) - 1).collect::<String>();
                 let end_text = text.chars().skip((start + len) as usize - 1).collect::<String>();
                 format!("{}{}{}", start_text, new_text, end_text)
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -451,7 +450,7 @@ impl Formula<'_> {
         let text = match (text, start, len, new_text) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text)) => {
                 if start < 0.0 {
-                    return Err(Error::Parser(rule_name).into());
+                    return Err(Error::Parser(rule_name));
                 }
                 let start_text = text.bytes().take((start as usize) - 1).collect::<Vec<_>>();
                 let end_text = text.bytes().skip((start + len) as usize - 1).collect::<Vec<_>>();
@@ -462,7 +461,7 @@ impl Formula<'_> {
                     String::from_utf8_lossy(&end_text)
                 )
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -486,12 +485,12 @@ impl Formula<'_> {
                             text.push_str(&delim);
                             text.push_str(&t);
                         }
-                        _ => return Err(Error::Parser(rule_name).into()),
+                        _ => return Err(Error::Parser(rule_name)),
                     }
                 }
                 text
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -502,7 +501,7 @@ impl Formula<'_> {
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
             Expr::String(text) => text.trim().to_string(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }
@@ -535,7 +534,7 @@ impl Formula<'_> {
                 .map(Iterator::collect::<String>)
                 .collect::<Vec<_>>()
                 .join(" "),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(text))
     }

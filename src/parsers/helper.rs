@@ -1,5 +1,4 @@
-use crate::{error::Error, Expr, Formula, Rule};
-use anyhow::Result;
+use crate::{error::Error, Expr, Formula, Result, Rule};
 use pest::iterators::Pairs;
 
 impl Formula<'_> {

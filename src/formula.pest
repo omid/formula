@@ -21,9 +21,15 @@ num = @{
     ~ ("." ~ ASCII_DIGIT*)?
     ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
 }
+array_row_sep = { ";" }
+array_col_sep = { "," }
+array = {
+    "{" ~ "}" |
+    "{" ~ F ~ ((array_col_sep | array_row_sep) ~ F)* ~ "}"
+}
 bool_true = { ^"true" ~ OP ~ CP | ^"true" }
 bool_false = { ^"false" ~ OP ~ CP | ^"false" }
-basic_types = _{ string | num | bool_true | bool_false }
+basic_types = _{ string | num | bool_true | bool_false | array }
 
 // Operators
 add = { ^"F.ADD" ~ OP ~ F ~ CF ~ CP }
@@ -465,166 +471,170 @@ logical_functions = _{
 }
 
 // Math functions
-// abs = { ^"ABS" ~ OP ~ F ~ CP }
-// acos = { ^"ACOS" ~ OP ~ F ~ CP }
-// acosh = { ^"ACOSH" ~ OP ~ F ~ CP }
-// acot = { ^"ACOT" ~ OP ~ F ~ CP }
-// acoth = { ^"ACOTH" ~ OP ~ F ~ CP }
-// aggregate = { ^"AGGREGATE" ~ OP ~ F ~ CP }
-// arabic = { ^"ARABIC" ~ OP ~ F ~ CP }
-// asin = { ^"ASIN" ~ OP ~ F ~ CP }
-// asinh = { ^"ASINH" ~ OP ~ F ~ CP }
-// atan = { ^"ATAN" ~ OP ~ F ~ CP }
-// atan2 = { ^"ATAN2" ~ OP ~ F ~ CP }
-// atanh = { ^"ATANH" ~ OP ~ F ~ CP }
-// base = { ^"BASE" ~ OP ~ F ~ CP }
-// ceiling_math = { ^"CEILING.MATH" ~ OP ~ F ~ CP }
-// ceiling_precise = { ^"CEILING.PRECISE" ~ OP ~ F ~ CP }
-// combin = { ^"COMBIN" ~ OP ~ F ~ CP }
-// combina = { ^"COMBINA" ~ OP ~ F ~ CP }
-// cos = { ^"COS" ~ OP ~ F ~ CP }
-// cosh = { ^"COSH" ~ OP ~ F ~ CP }
-// cot = { ^"COT" ~ OP ~ F ~ CP }
-// coth = { ^"COTH" ~ OP ~ F ~ CP }
-// csc = { ^"CSC" ~ OP ~ F ~ CP }
-// csch = { ^"CSCH" ~ OP ~ F ~ CP }
-// decimal = { ^"DECIMAL" ~ OP ~ F ~ CP }
-// degrees = { ^"DEGREES" ~ OP ~ F ~ CP }
-// even = { ^"EVEN" ~ OP ~ F ~ CP }
-// exp = { ^"EXP" ~ OP ~ F ~ CP }
-// fact = { ^"FACT" ~ OP ~ F ~ CP }
-// factdouble = { ^"FACTDOUBLE" ~ OP ~ F ~ CP }
-// floor_math = { ^"FLOOR.MATH" ~ OP ~ F ~ CP }
-// floor_precise = { ^"FLOOR.PRECISE" ~ OP ~ F ~ CP }
-// gcd = { ^"GCD" ~ OP ~ F ~ CP }
-// int = { ^"INT" ~ OP ~ F ~ CP }
-// iso_ceiling = { ^"ISO.CEILING" ~ OP ~ F ~ CP }
-// lcm = { ^"LCM" ~ OP ~ F ~ CP }
-// ln = { ^"LN" ~ OP ~ F ~ CP }
-// log = { ^"LOG" ~ OP ~ F ~ CP }
-// log10 = { ^"LOG10" ~ OP ~ F ~ CP }
-// mdeterm = { ^"MDETERM" ~ OP ~ F ~ CP }
-// minverse = { ^"MINVERSE" ~ OP ~ F ~ CP }
-// mmult = { ^"MMULT" ~ OP ~ F ~ CP }
-// mod_ = { ^"MOD" ~ OP ~ F ~ CP }
-// mround = { ^"MROUND" ~ OP ~ F ~ CP }
-// multinomial = { ^"MULTINOMIAL" ~ OP ~ F ~ CP }
-// munit = { ^"MUNIT" ~ OP ~ F ~ CP }
-// odd = { ^"ODD" ~ OP ~ F ~ CP }
-// pi = { ^"PI" ~ OP ~ F ~ CP }
-// power = { ^"POWER" ~ OP ~ F ~ CP }
-// product = { ^"PRODUCT" ~ OP ~ F ~ CP }
-// quotient = { ^"QUOTIENT" ~ OP ~ F ~ CP }
-// radians = { ^"RADIANS" ~ OP ~ F ~ CP }
-// rand = { ^"RAND" ~ OP ~ F ~ CP }
-// randarray = { ^"RANDARRAY" ~ OP ~ F ~ CP }
-// randbetween = { ^"RANDBETWEEN" ~ OP ~ F ~ CP }
-// roman = { ^"ROMAN" ~ OP ~ F ~ CP }
-// round = { ^"ROUND" ~ OP ~ F ~ CP }
-// rounddown = { ^"ROUNDDOWN" ~ OP ~ F ~ CP }
-// roundup = { ^"ROUNDUP" ~ OP ~ F ~ CP }
-// sec = { ^"SEC" ~ OP ~ F ~ CP }
-// sech = { ^"SECH" ~ OP ~ F ~ CP }
-// sequence = { ^"SEQUENCE" ~ OP ~ F ~ CP }
-// seriessum = { ^"SERIESSUM" ~ OP ~ F ~ CP }
-// sign = { ^"SIGN" ~ OP ~ F ~ CP }
-// sin = { ^"SIN" ~ OP ~ F ~ CP }
-// sinh = { ^"SINH" ~ OP ~ F ~ CP }
-// sqrt = { ^"SQRT" ~ OP ~ F ~ CP }
-// sqrtpi = { ^"SQRTPI" ~ OP ~ F ~ CP }
-// subtotal = { ^"SUBTOTAL" ~ OP ~ F ~ CP }
-// sum = { ^"SUM" ~ OP ~ F ~ CP }
-// sumif = { ^"SUMIF" ~ OP ~ F ~ CP }
-// sumifs = { ^"SUMIFS" ~ OP ~ F ~ CP }
-// sumproduct = { ^"SUMPRODUCT" ~ OP ~ F ~ CP }
-// sumsq = { ^"SUMSQ" ~ OP ~ F ~ CP }
-// sumx2my2 = { ^"SUMX2MY2" ~ OP ~ F ~ CP }
-// sumx2py2 = { ^"SUMX2PY2" ~ OP ~ F ~ CP }
-// sumxmy2 = { ^"SUMXMY2" ~ OP ~ F ~ CP }
-// tan = { ^"TAN" ~ OP ~ F ~ CP }
-// tanh = { ^"TANH" ~ OP ~ F ~ CP }
-// trunc = { ^"TRUNC" ~ OP ~ F ~ CP }
-// math_functions = _{
-//     abs
-//     | acos
-//     | acosh
-//     | acot
-//     | acoth
-//     | aggregate
-//     | arabic
-//     | asin
-//     | asinh
-//     | atan
-//     | atan2
-//     | atanh
-//     | base
-//     | ceiling_math
-//     | ceiling_precise
-//     | combin
-//     | combina
-//     | cos
-//     | cosh
-//     | cot
-//     | coth
-//     | csc
-//     | csch
-//     | decimal
-//     | degrees
-//     | even
-//     | exp
-//     | fact
-//     | factdouble
-//     | floor_math
-//     | floor_precise
-//     | gcd
-//     | int
-//     | iso_ceiling
-//     | lcm
-//     | ln
-//     | log
-//     | log10
-//     | mdeterm
-//     | minverse
-//     | mmult
-//     | mod_
-//     | mround
-//     | multinomial
-//     | munit
-//     | odd
-//     | pi
-//     | power
-//     | product
-//     | quotient
-//     | radians
-//     | rand
-//     | randarray
-//     | randbetween
-//     | roman
-//     | round
-//     | rounddown
-//     | roundup
-//     | sec
-//     | sech
-//     | sequence
-//     | seriessum
-//     | sign
-//     | sin
-//     | sinh
-//     | sqrt
-//     | sqrtpi
-//     | subtotal
-//     | sum
-//     | sumif
-//     | sumifs
-//     | sumproduct
-//     | sumsq
-//     | sumx2my2
-//     | sumx2py2
-//     | sumxmy2
-//     | tan
-//     | tanh
-//     | trunc
-// }
+abs = { ^"ABS" ~ OP ~ F ~ CP }
+acos = { ^"ACOS" ~ OP ~ F ~ CP }
+acosh = { ^"ACOSH" ~ OP ~ F ~ CP }
+acot = { ^"ACOT" ~ OP ~ F ~ CP }
+acoth = { ^"ACOTH" ~ OP ~ F ~ CP }
+aggregate = { ^"AGGREGATE" ~ OP ~ F ~ CF ~ CF ~ CF* ~ CP }
+arabic = { ^"ARABIC" ~ OP ~ F ~ CP }
+asin = { ^"ASIN" ~ OP ~ F ~ CP }
+asinh = { ^"ASINH" ~ OP ~ F ~ CP }
+atan = { ^"ATAN" ~ OP ~ F ~ CP }
+atan2 = { ^"ATAN2" ~ OP ~ F ~ CF ~ CP }
+atanh = { ^"ATANH" ~ OP ~ F ~ CP }
+base = { ^"BASE" ~ OP ~ F ~ CF ~ CF? ~ CP }
+ceiling = { ^"CEILING" ~ OP ~ F ~ CF ~ CP }
+ceiling_math = { ^"CEILING.MATH" ~ OP ~ F ~ CF? ~ CF? ~ CP }
+ceiling_precise = { ^"CEILING.PRECISE" ~ OP ~ F ~ CF? ~ CP }
+combin = { ^"COMBIN" ~ OP ~ F ~ CF ~ CP }
+combina = { ^"COMBINA" ~ OP ~ F ~ CF ~ CP }
+cos = { ^"COS" ~ OP ~ F ~ CP }
+cosh = { ^"COSH" ~ OP ~ F ~ CP }
+cot = { ^"COT" ~ OP ~ F ~ CP }
+coth = { ^"COTH" ~ OP ~ F ~ CP }
+csc = { ^"CSC" ~ OP ~ F ~ CP }
+csch = { ^"CSCH" ~ OP ~ F ~ CP }
+decimal = { ^"DECIMAL" ~ OP ~ F ~ CF ~ CP }
+degrees = { ^"DEGREES" ~ OP ~ F ~ CP }
+even = { ^"EVEN" ~ OP ~ F ~ CP }
+exp = { ^"EXP" ~ OP ~ F ~ CP }
+fact = { ^"FACT" ~ OP ~ F ~ CP }
+factdouble = { ^"FACTDOUBLE" ~ OP ~ F ~ CP }
+floor = { ^"FLOOR" ~ OP ~ F ~ CF ~ CP }
+floor_math = { ^"FLOOR.MATH" ~ OP ~ F ~ CF? ~ CF? ~ CP }
+floor_precise = { ^"CEILING.PRECISE" ~ OP ~ F ~ CF? ~ CP }
+gcd = { ^"GCD" ~ OP ~ F ~ CF* ~ CP }
+int = { ^"INT" ~ OP ~ F ~ CP }
+iso_ceiling = { ^"ISO.CEILING" ~ OP ~ F ~ CF? ~ CP }
+lcm = { ^"LCM" ~ OP ~ F ~ CF* ~ CP }
+ln = { ^"LN" ~ OP ~ F ~ CP }
+log = { ^"LOG" ~ OP ~ F ~ CF ~ CP }
+log10 = { ^"LOG10" ~ OP ~ F ~ CP }
+mdeterm = { ^"MDETERM" ~ OP ~ F ~ CP }
+minverse = { ^"MINVERSE" ~ OP ~ F ~ CP }
+mmult = { ^"MMULT" ~ OP ~ F ~ CF ~ CP }
+mod_ = { ^"MOD" ~ OP ~ F ~ CF ~ CP }
+mround = { ^"MROUND" ~ OP ~ F ~ CF ~ CP }
+multinomial = { ^"MULTINOMIAL" ~ OP ~ F ~ CF* ~ CP }
+munit = { ^"MUNIT" ~ OP ~ F ~ CP }
+odd = { ^"ODD" ~ OP ~ F ~ CP }
+pi = { ^"PI" ~ OP ~ CP }
+power = { ^"POWER" ~ OP ~ F ~ CF ~ CP }
+product = { ^"PRODUCT" ~ OP ~ F ~ CF* ~ CP }
+quotient = { ^"QUOTIENT" ~ OP ~ F ~ CF ~ CP }
+radians = { ^"RADIANS" ~ OP ~ F ~ CP }
+rand = { ^"RAND" ~ OP ~ CP }
+randarray = { ^"RANDARRAY" ~ OP ~ F? ~ CF? ~ CF? ~ CF? ~ CF? ~ CP }
+randbetween = { ^"RANDBETWEEN" ~ OP ~ F ~ CF ~ CP }
+roman = { ^"ROMAN" ~ OP ~ F ~ CF? ~ CP }
+round = { ^"ROUND" ~ OP ~ F ~ CF ~ CP }
+rounddown = { ^"ROUNDDOWN" ~ OP ~ F ~ CF ~ CP }
+roundup = { ^"ROUNDUP" ~ OP ~ F ~ CF ~ CP }
+sec = { ^"SEC" ~ OP ~ F ~ CP }
+sech = { ^"SECH" ~ OP ~ F ~ CP }
+sequence = { ^"SEQUENCE" ~ OP ~ F ~ CF? ~ CF? ~ CF? ~ CP }
+seriessum = { ^"SERIESSUM" ~ OP ~ F ~ CF ~ CF ~ CF ~ CP }
+sign = { ^"SIGN" ~ OP ~ F ~ CP }
+sin = { ^"SIN" ~ OP ~ F ~ CP }
+sinh = { ^"SINH" ~ OP ~ F ~ CP }
+sqrt = { ^"SQRT" ~ OP ~ F ~ CP }
+sqrtpi = { ^"SQRTPI" ~ OP ~ F ~ CP }
+subtotal = { ^"SUBTOTAL" ~ OP ~ F ~ CF ~ CF* ~ CP }
+sum = { ^"SUM" ~ OP ~ F ~ CF* ~ CP }
+sumif = { ^"SUMIF" ~ OP ~ F ~ CF ~ CF ~ CP }
+sumifs = { ^"SUMIFS" ~ OP ~ F ~ CP }
+sumproduct = { ^"SUMPRODUCT" ~ OP ~ F ~ CF* ~ CP }
+sumsq = { ^"SUMSQ" ~ OP ~ F ~ CF* ~ CP }
+sumx2my2 = { ^"SUMX2MY2" ~ OP ~ F ~ CF ~ CP }
+sumx2py2 = { ^"SUMX2PY2" ~ OP ~ F ~ CF ~ CP }
+sumxmy2 = { ^"SUMXMY2" ~ OP ~ F ~ CF ~ CP }
+tan = { ^"TAN" ~ OP ~ F ~ CP }
+tanh = { ^"TANH" ~ OP ~ F ~ CP }
+trunc = { ^"TRUNC" ~ OP ~ F ~ CF ~ CP }
+math_functions = _{
+    abs
+    | acos
+    | acosh
+    | acot
+    | acoth
+    | aggregate
+    | arabic
+    | asin
+    | asinh
+    | atan
+    | atan2
+    | atanh
+    | base
+    | ceiling
+    | ceiling_math
+    | ceiling_precise
+    | combin
+    | combina
+    | cos
+    | cosh
+    | cot
+    | coth
+    | csc
+    | csch
+    | decimal
+    | degrees
+    | even
+    | exp
+    | fact
+    | factdouble
+    | floor
+    | floor_math
+    | floor_precise
+    | gcd
+    | int
+    | iso_ceiling
+    | lcm
+    | ln
+    | log
+    | log10
+    | mdeterm
+    | minverse
+    | mmult
+    | mod_
+    | mround
+    | multinomial
+    | munit
+    | odd
+    | pi
+    | power
+    | product
+    | quotient
+    | radians
+    | rand
+    | randarray
+    | randbetween
+    | roman
+    | round
+    | rounddown
+    | roundup
+    | sec
+    | sech
+    | sequence
+    | seriessum
+    | sign
+    | sin
+    | sinh
+    | sqrt
+    | sqrtpi
+    | subtotal
+    | sum
+    | sumif
+    | sumifs
+    | sumproduct
+    | sumsq
+    | sumx2my2
+    | sumx2py2
+    | sumxmy2
+    | tan
+    | tanh
+    | trunc
+}
 
 // Statistical functions
 // avedev = { ^"AVEDEV" ~ OP ~ F ~ CP }
@@ -870,7 +880,7 @@ formula = _{
 //     | engineering_functions
 //     | financial_functions
     | logical_functions
-//     | math_functions
+    | math_functions
 //     | statistical_functions
     | web_functions
 }

@@ -1,5 +1,4 @@
-use crate::{error::Error, Expr, Formula, Rule};
-use anyhow::Result;
+use crate::{error::Error, Expr, Formula, Result, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -11,7 +10,7 @@ impl Formula<'_> {
 
         let res = match (operand1, operand2) {
             (Expr::Number(operand1), Expr::Number(operand2)) => operand1 + operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(res))
     }
@@ -24,7 +23,7 @@ impl Formula<'_> {
 
         let res = match (operand1, operand2) {
             (Expr::Number(operand1), Expr::Number(operand2)) => operand1 - operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(res))
     }
@@ -37,7 +36,7 @@ impl Formula<'_> {
 
         let res = match (operand1, operand2) {
             (Expr::Number(operand1), Expr::Number(operand2)) => operand1 * operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(res))
     }
@@ -56,7 +55,7 @@ impl Formula<'_> {
                     Expr::Number(operand1 / operand2)
                 }
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(res)
     }
@@ -69,7 +68,7 @@ impl Formula<'_> {
 
         let res = match (operand1, operand2) {
             (Expr::Number(operand1), Expr::Number(operand2)) => operand1.powf(operand2),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(res))
     }
@@ -87,7 +86,7 @@ impl Formula<'_> {
             (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 == operand2,
             (Expr::Date(operand1), Expr::Date(operand2)) => operand1 == operand2,
             (Expr::Bool(operand1), Expr::Bool(operand2)) => operand1 == operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(res))
     }
@@ -105,7 +104,7 @@ impl Formula<'_> {
             (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 != operand2,
             (Expr::Date(operand1), Expr::Date(operand2)) => operand1 != operand2,
             (Expr::Bool(operand1), Expr::Bool(operand2)) => operand1 != operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(res))
     }
@@ -122,7 +121,7 @@ impl Formula<'_> {
             (Expr::Time(operand1), Expr::Time(operand2)) => operand1 > operand2,
             (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 > operand2,
             (Expr::Date(operand1), Expr::Date(operand2)) => operand1 > operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(res))
     }
@@ -139,7 +138,7 @@ impl Formula<'_> {
             (Expr::Time(operand1), Expr::Time(operand2)) => operand1 < operand2,
             (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 < operand2,
             (Expr::Date(operand1), Expr::Date(operand2)) => operand1 < operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(res))
     }
@@ -156,7 +155,7 @@ impl Formula<'_> {
             (Expr::Time(operand1), Expr::Time(operand2)) => operand1 >= operand2,
             (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 >= operand2,
             (Expr::Date(operand1), Expr::Date(operand2)) => operand1 >= operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(res))
     }
@@ -173,7 +172,7 @@ impl Formula<'_> {
             (Expr::Time(operand1), Expr::Time(operand2)) => operand1 <= operand2,
             (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 <= operand2,
             (Expr::Date(operand1), Expr::Date(operand2)) => operand1 <= operand2,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(res))
     }
@@ -185,7 +184,7 @@ impl Formula<'_> {
 
         let res = match operand {
             Expr::Number(operand) => operand / 100.0,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(res))
     }
@@ -197,7 +196,7 @@ impl Formula<'_> {
 
         let res = match operand {
             Expr::Number(operand) => -operand,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(res))
     }

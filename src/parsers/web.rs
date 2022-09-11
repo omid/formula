@@ -1,5 +1,4 @@
-use crate::{error::Error, Expr, Formula, Rule};
-use anyhow::Result;
+use crate::{error::Error, Expr, Formula, Result, Rule};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
@@ -11,11 +10,12 @@ impl Formula<'_> {
 
         let url = match url {
             Expr::String(url) => encode(&url).to_string(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(url))
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     pub(crate) fn parse_filterxml(pair: Pair<Rule>) -> Result<Expr> {
         // let rule_name = format!("{:?}", &pair.as_rule());
         // let mut args = pair.into_inner();
@@ -39,8 +39,11 @@ impl Formula<'_> {
         let url = Self::get_formula(&mut args, &rule_name)?;
 
         let response = match url {
-            Expr::String(url) => reqwest::blocking::get(&url)?.text()?,
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(url) => reqwest::blocking::get(&url)
+                .map_err(|_| Error::Parser(rule_name.clone()))?
+                .text()
+                .map_err(|_| Error::Parser(rule_name.clone()))?,
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(response))
     }
