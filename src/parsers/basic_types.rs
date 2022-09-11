@@ -90,12 +90,12 @@ mod tests {
             Expr::Array(vec![Expr::String("TEST".to_string()), Expr::Number(1.0)]),
         );
 
-        let formula = Formula::new("={'TEST', 1; 2, TRUE}").unwrap();
+        let formula = Formula::new("={'TEST', SUM(1,2); 2, TRUE}").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(
             value,
             Expr::Array(vec![
-                Expr::Array(vec![Expr::String("TEST".to_string()), Expr::Number(1.0)]),
+                Expr::Array(vec![Expr::String("TEST".to_string()), Expr::Number(3.0)]),
                 Expr::Array(vec![Expr::Number(2.0), Expr::Bool(true)]),
             ])
         );
