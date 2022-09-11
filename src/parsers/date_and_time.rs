@@ -1,6 +1,5 @@
 use crate::{error::Error, Expr, Formula, Result, Rule};
 use chrono::{Datelike, NaiveDate, NaiveTime, Timelike, Utc};
-use chronoutil::shift_months;
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -131,12 +130,13 @@ impl Formula<'_> {
         let date = match (date, num) {
             (Expr::String(date), Expr::Number(num)) => {
                 let date = Self::datestring_to_naivedate(&date, &rule_name)?;
-                let date = shift_months(date, num as i32);
+                let date = Self::shift_months(date, num);
                 let last_day = Self::last_day_of_month(date.year(), date.month());
                 NaiveDate::from_ymd(date.year(), date.month(), last_day)
             }
             (Expr::Date(date), Expr::Number(num)) => {
-                let date = shift_months(date, num as i32);
+                dbg!(&date, &num);
+                let date = Self::shift_months(date, num);
                 let last_day = Self::last_day_of_month(date.year(), date.month());
                 NaiveDate::from_ymd(date.year(), date.month(), last_day)
             }
@@ -154,9 +154,9 @@ impl Formula<'_> {
         let date = match (date, num) {
             (Expr::String(date), Expr::Number(num)) => {
                 let date = Self::datestring_to_naivedate(&date, &rule_name)?;
-                shift_months(date, num as i32)
+                Self::shift_months(date, num)
             }
-            (Expr::Date(date), Expr::Number(num)) => shift_months(date, num as i32),
+            (Expr::Date(date), Expr::Number(num)) => Self::shift_months(date, num),
             _ => return Err(Error::Parser(rule_name)),
         };
 
@@ -250,19 +250,6 @@ impl Formula<'_> {
         Ok(date)
     }
 
-    // fn Self::datestring_to_naivedate(datestring: &str) -> NaiveDate {
-    //     let datestring = datestring.trim().trim_matches('\'').trim_matches('"');
-    //
-    //     NaiveDate::parse_from_str(datestring, "%m/%d/%Y")
-    //         .unwrap_or(NaiveDate::parse_from_str(datestring, "%v").ok_or_else(|| Error::Parser(rule_name.clone()))?)
-    // }
-    //
-    // fn Self::timestring_to_naivetime(timestring: &str) -> NaiveTime {
-    //     let timestring = timestring.trim().trim_matches('\'').trim_matches('"');
-    //     NaiveTime::parse_from_str(timestring, "%T")
-    //         .unwrap_or(NaiveTime::parse_from_str(timestring, "%r").ok_or_else(|| Error::Parser(rule_name.clone()))?)
-    // }
-
     fn datestring_to_naivedate(datestring: &str, rule_name: &str) -> Result<NaiveDate> {
         let mdy = datestring
             .split('/')
@@ -289,6 +276,19 @@ impl Formula<'_> {
             .unwrap_or_else(|| NaiveDate::from_ymd(year + 1, 1, 1))
             .pred()
             .day()
+    }
+
+    fn shift_months(date: NaiveDate, months: f64) -> NaiveDate {
+        let months = months as i32;
+        let year = date.year() + (months / 12);
+        #[allow(clippy::cast_possible_wrap)]
+        let month = (date.month() as i32 + (months % 12)) as u32;
+        let day = date.day();
+
+        let last_day = Self::last_day_of_month(year, month);
+        let day = if day > last_day { last_day } else { day };
+
+        NaiveDate::from_ymd(year, month, day)
     }
 }
 
@@ -340,9 +340,17 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2020, 6, 30)));
 
+        let formula = Formula::new("=EDATE(DATE(2020,8,25),27)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2022, 11, 25)));
+
         let formula = Formula::new("=EOMONTH('1/20/2020', 5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2020, 6, 30)));
+
+        let formula = Formula::new("=EOMONTH(DATE(2020,8,31),27)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2022, 11, 30)));
 
         let formula = Formula::new("=HOUR('02:30:00')").unwrap();
         let value = formula.parse().unwrap();
