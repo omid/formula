@@ -14,6 +14,7 @@ So far we have the following features:
 
 - 18 date time functions
 - 26 text functions
+- 26 math functions
 - 7 logical functions
 - 2 web functions
 - plus all arithmetic and comparison operators
@@ -25,8 +26,7 @@ Add this library to your project with `cargo add formula` or add `formula = "*"`
 Use it similar to the following code:
 
 ```rust
-use formula::{Formula, Expr, error::Error};
-use anyhow::Result;
+use formula::{Formula, Expr, error::Error, Result};
 
 fn main() -> Result<()> {
     let formula = Formula::new("=UPPER(TRIM('   Hello '))")?;
@@ -47,6 +47,11 @@ fn main() -> Result<()> {
 
 We would love to have your contribution! Please read our [contributing guidelines](CONTRIBUTING.md) to get started.
 
+## Inspired by
+
+- [formulajs](https://github.com/formulajs/formulajs)
+- [hyperformula](https://github.com/handsontable/hyperformula)
+
 ## License
 
 This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) file for more info.
@@ -55,7 +60,6 @@ This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) fi
 pub mod error;
 mod parsers;
 
-use anyhow::Result;
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
@@ -64,17 +68,17 @@ use pest_derive::Parser;
 #[grammar = "formula.pest"]
 struct FormulaInner;
 
-#[derive(Debug)]
 /// `Formula`, is the main struct and entry point of this library.
+#[derive(Debug)]
 pub struct Formula<'a> {
     pairs: Pair<'a, Rule>,
 }
 
-#[derive(Debug, PartialEq)]
 /// `Expr` is the result of parsing a formula.
 ///
 /// There is a difference between Excel and this library here.
 /// We don't have a `#N/A`, `#VALUE!`, `#DIV/0!`, `#NUM!`, `#NULL!` error types, instead it will return `Expr::Null`.
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Date(NaiveDate),
     Datetime(DateTime<Utc>),
@@ -82,15 +86,17 @@ pub enum Expr {
     Number(f64),
     String(String),
     Bool(bool),
+    Array(Vec<Expr>),
     Null,
 }
+
+pub type Result<T> = std::result::Result<T, error::Error>;
 
 impl<'a> Formula<'a> {
     /// To interpret and prepare a new formula, you need to call the `new` method, like the code below:
     ///
     /// ```rust
-    /// use formula::{Formula, Expr, error::Error};
-    /// use anyhow::Result;
+    /// use formula::{Formula, Expr, error::Error, Result};
     ///
     /// fn main() -> Result<()> {
     ///     let formula = Formula::new("=UPPER(TRIM('   Hello '))")?;
@@ -104,7 +110,8 @@ impl<'a> Formula<'a> {
     ///
     /// Will return `Err` if the formula is not valid.
     pub fn new(formula: &'a str) -> Result<Self> {
-        let pairs = FormulaInner::parse(Rule::root, formula)?
+        let pairs = FormulaInner::parse(Rule::root, formula)
+            .map_err(|_| error::Error::Parser("root".to_string()))?
             .next()
             .ok_or_else(|| error::Error::Parser("No formula found".to_string()))?;
         Ok(Self { pairs })
@@ -155,8 +162,8 @@ impl<'a> Formula<'a> {
             Rule::isoweeknum => Self::parse_isoweeknum(pair)?,
             Rule::weeknum => Self::parse_weeknum(pair)?,
             Rule::weekday => Self::parse_weekday(pair)?,
-            Rule::now => Self::parse_now(),
-            Rule::today => Self::parse_today(),
+            Rule::now => Self::parse_now(pair)?,
+            Rule::today => Self::parse_today(pair)?,
             // TODO remaining date and time functions
             Rule::networkdays
             | Rule::networkdaysintl
@@ -164,7 +171,7 @@ impl<'a> Formula<'a> {
             | Rule::workdaysintl
             | Rule::yearfrac
             | Rule::days360
-            | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
 
             // Text functions
             Rule::left => Self::parse_left(pair)?,
@@ -209,7 +216,7 @@ impl<'a> Formula<'a> {
             | Rule::textsplit
             | Rule::value
             | Rule::valuetotext
-            | Rule::bahttext => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::bahttext => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
             // Engineering functions
             // Financial functions
             // Logical functions
@@ -230,8 +237,92 @@ impl<'a> Formula<'a> {
             | Rule::map
             | Rule::lambda
             | Rule::switch
-            | Rule::ifs => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::ifs => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
             // Math functions
+            Rule::abs => Self::parse_abs(pair)?,
+            Rule::acos => Self::parse_acos(pair)?,
+            Rule::acosh => Self::parse_acosh(pair)?,
+            Rule::asin => Self::parse_asin(pair)?,
+            Rule::asinh => Self::parse_asinh(pair)?,
+            Rule::cos => Self::parse_cos(pair)?,
+            Rule::cosh => Self::parse_cosh(pair)?,
+            Rule::sin => Self::parse_sin(pair)?,
+            Rule::sinh => Self::parse_sinh(pair)?,
+            Rule::tan => Self::parse_tan(pair)?,
+            Rule::tanh => Self::parse_tanh(pair)?,
+            Rule::atan => Self::parse_atan(pair)?,
+            Rule::atan2 => Self::parse_atan2(pair)?,
+            Rule::atanh => Self::parse_atanh(pair)?,
+            Rule::pi => Self::parse_pi(pair)?,
+            Rule::power => Self::parse_pow(pair)?,
+            Rule::mod_ => Self::parse_mod(pair)?,
+            Rule::log => Self::parse_log(pair)?,
+            Rule::log10 => Self::parse_log10(pair)?,
+            Rule::ln => Self::parse_ln(pair)?,
+            Rule::sqrt => Self::parse_sqrt(pair)?,
+            Rule::sqrtpi => Self::parse_sqrtpi(pair)?,
+            Rule::rand => Self::parse_rand(pair)?,
+            Rule::sign => Self::parse_sign(pair)?,
+            Rule::exp => Self::parse_exp(pair)?,
+            Rule::sum => Self::parse_sum(pair)?,
+
+            // TODO remaining text functions
+            Rule::ceiling
+            | Rule::round
+            | Rule::floor
+            | Rule::acot
+            | Rule::acoth
+            | Rule::aggregate
+            | Rule::arabic
+            | Rule::base
+            | Rule::ceiling_math
+            | Rule::ceiling_precise
+            | Rule::combin
+            | Rule::combina
+            | Rule::cot
+            | Rule::coth
+            | Rule::csc
+            | Rule::csch
+            | Rule::decimal
+            | Rule::degrees
+            | Rule::even
+            | Rule::fact
+            | Rule::factdouble
+            | Rule::floor_math
+            | Rule::floor_precise
+            | Rule::gcd
+            | Rule::int
+            | Rule::iso_ceiling
+            | Rule::lcm
+            | Rule::mdeterm
+            | Rule::minverse
+            | Rule::mmult
+            | Rule::mround
+            | Rule::multinomial
+            | Rule::munit
+            | Rule::odd
+            | Rule::product
+            | Rule::quotient
+            | Rule::radians
+            | Rule::randarray
+            | Rule::randbetween
+            | Rule::roman
+            | Rule::rounddown
+            | Rule::roundup
+            | Rule::sec
+            | Rule::sech
+            | Rule::sequence
+            | Rule::seriessum
+            | Rule::subtotal
+            | Rule::sumif
+            | Rule::sumifs
+            | Rule::sumproduct
+            | Rule::sumsq
+            | Rule::sumx2my2
+            | Rule::sumx2py2
+            | Rule::sumxmy2
+            | Rule::trunc => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
+
             // Statistical functions
             // Web functions
             Rule::encodeurl => Self::parse_encodeurl(pair)?,
@@ -239,16 +330,11 @@ impl<'a> Formula<'a> {
             Rule::webservice => Self::parse_webservice(pair)?,
 
             // Basic types
-            Rule::num => {
-                let number = pair.as_str().trim().parse().unwrap();
-                Expr::Number(number)
-            }
-            Rule::string => {
-                let string = pair.into_inner().as_str().to_string();
-                Expr::String(string)
-            }
-            Rule::bool_true => Expr::Bool(true),
-            Rule::bool_false => Expr::Bool(false),
+            Rule::num => Self::parse_num(pair)?,
+            Rule::string => Self::parse_string(pair)?,
+            Rule::bool_true => Self::parse_true(pair)?,
+            Rule::bool_false => Self::parse_false(pair)?,
+            Rule::array => Self::parse_array(pair)?,
             Rule::formula
             | Rule::root
             | Rule::OP
@@ -259,11 +345,14 @@ impl<'a> Formula<'a> {
             | Rule::Q
             | Rule::inner
             | Rule::char_
+            | Rule::array_row_sep
+            | Rule::array_col_sep
             | Rule::basic_types
             | Rule::operators
             | Rule::datetime_functions
             | Rule::text_functions
             | Rule::logical_functions
+            | Rule::math_functions
             | Rule::web_functions
             | Rule::WHITESPACE => {
                 unreachable!()
@@ -271,31 +360,5 @@ impl<'a> Formula<'a> {
         };
 
         Ok(res)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::Formula;
-
-    #[test]
-    #[allow(clippy::too_many_lines)]
-    fn test_parse_basic_types() {
-        let formula = Formula::new("=TRUE").unwrap();
-        let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Bool(true));
-
-        let formula = Formula::new("=TRUE()").unwrap();
-        let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Bool(true));
-
-        let formula = Formula::new("=25").unwrap();
-        let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Number(25.0));
-
-        let formula = Formula::new("='TEST'").unwrap();
-        let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::String("TEST".to_string()));
     }
 }

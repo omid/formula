@@ -1,16 +1,16 @@
-use crate::{error::Error, Expr, Formula, Rule};
-use anyhow::Result;
+use crate::{error::Error, Expr, Formula, Result, Rule};
 use chrono::{Datelike, NaiveDate, NaiveTime, Timelike, Utc};
-use chronoutil::shift_months;
 use pest::iterators::Pair;
 
 impl Formula<'_> {
-    pub(crate) fn parse_now() -> Expr {
-        Expr::Datetime(Utc::now())
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    pub(crate) fn parse_now(_pair: Pair<Rule>) -> Result<Expr> {
+        Ok(Expr::Datetime(Utc::now()))
     }
 
-    pub(crate) fn parse_today() -> Expr {
-        Expr::Date(Utc::now().naive_utc().date())
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    pub(crate) fn parse_today(_pair: Pair<Rule>) -> Result<Expr> {
+        Ok(Expr::Date(Utc::now().naive_utc().date()))
     }
 
     pub(crate) fn parse_weekday(pair: Pair<Rule>) -> Result<Expr> {
@@ -22,11 +22,12 @@ impl Formula<'_> {
 
         let weekday = match date {
             Expr::Date(date) => date.weekday(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(weekday as i32)))
     }
 
+    #[allow(clippy::needless_pass_by_value)]
     pub(crate) fn parse_weeknum(pair: Pair<Rule>) -> Result<Expr> {
         // let rule_name = format!("{:?}", &pair.as_rule());
         // let mut args = pair.into_inner();
@@ -57,8 +58,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let second = match arg {
             Expr::Date(date) => date.iso_week().week(),
-            Expr::String(date) => Self::datestring_to_naivedate(&date)?.iso_week().week(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(date) => Self::datestring_to_naivedate(&date, &rule_name)?.iso_week().week(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(second)))
     }
@@ -69,8 +70,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let second = match arg {
             Expr::Time(time) => time.second(),
-            Expr::String(time) => Self::timestring_to_naivetime(&time)?.second(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(time) => Self::timestring_to_naivetime(&time, &rule_name)?.second(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(second)))
     }
@@ -81,8 +82,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let minute = match arg {
             Expr::Time(time) => time.minute(),
-            Expr::String(time) => Self::timestring_to_naivetime(&time)?.minute(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(time) => Self::timestring_to_naivetime(&time, &rule_name)?.minute(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(minute)))
     }
@@ -93,8 +94,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let hour = match arg {
             Expr::Time(time) => time.hour(),
-            Expr::String(time) => Self::timestring_to_naivetime(&time)?.hour(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(time) => Self::timestring_to_naivetime(&time, &rule_name)?.hour(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(hour)))
     }
@@ -104,8 +105,8 @@ impl Formula<'_> {
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let time = match arg {
-            Expr::String(datestring) => Self::timestring_to_naivetime(&datestring)?,
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(datestring) => Self::timestring_to_naivetime(&datestring, &rule_name)?,
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Time(time))
     }
@@ -115,8 +116,8 @@ impl Formula<'_> {
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let date = match arg {
-            Expr::String(datestring) => Self::datestring_to_naivedate(&datestring)?,
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(datestring) => Self::datestring_to_naivedate(&datestring, &rule_name)?,
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Date(date))
     }
@@ -128,17 +129,18 @@ impl Formula<'_> {
         let num = Self::get_formula(&mut args, &rule_name)?;
         let date = match (date, num) {
             (Expr::String(date), Expr::Number(num)) => {
-                let date = Self::datestring_to_naivedate(&date)?;
-                let date = shift_months(date, num as i32);
+                let date = Self::datestring_to_naivedate(&date, &rule_name)?;
+                let date = Self::shift_months(date, num);
                 let last_day = Self::last_day_of_month(date.year(), date.month());
                 NaiveDate::from_ymd(date.year(), date.month(), last_day)
             }
             (Expr::Date(date), Expr::Number(num)) => {
-                let date = shift_months(date, num as i32);
+                dbg!(&date, &num);
+                let date = Self::shift_months(date, num);
                 let last_day = Self::last_day_of_month(date.year(), date.month());
                 NaiveDate::from_ymd(date.year(), date.month(), last_day)
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
 
         Ok(Expr::Date(date))
@@ -151,11 +153,11 @@ impl Formula<'_> {
         let num = Self::get_formula(&mut args, &rule_name)?;
         let date = match (date, num) {
             (Expr::String(date), Expr::Number(num)) => {
-                let date = Self::datestring_to_naivedate(&date)?;
-                shift_months(date, num as i32)
+                let date = Self::datestring_to_naivedate(&date, &rule_name)?;
+                Self::shift_months(date, num)
             }
-            (Expr::Date(date), Expr::Number(num)) => shift_months(date, num as i32),
-            _ => return Err(Error::Parser(rule_name).into()),
+            (Expr::Date(date), Expr::Number(num)) => Self::shift_months(date, num),
+            _ => return Err(Error::Parser(rule_name)),
         };
 
         Ok(Expr::Date(date))
@@ -171,12 +173,12 @@ impl Formula<'_> {
                 end_date.signed_duration_since(start_date).num_days() as f64
             }
             (Expr::String(end_date), Expr::String(start_date)) => {
-                let end_date = Self::datestring_to_naivedate(&end_date)?;
-                let start_date = Self::datestring_to_naivedate(&start_date)?;
+                let end_date = Self::datestring_to_naivedate(&end_date, &rule_name)?;
+                let start_date = Self::datestring_to_naivedate(&start_date, &rule_name)?;
                 end_date.signed_duration_since(start_date).num_days() as f64
             }
             (Expr::Number(end_date), Expr::Number(start_date)) => end_date - start_date,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
 
         Ok(Expr::Number(days as f64))
@@ -188,8 +190,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let day = match arg {
             Expr::Date(date) => date.day(),
-            Expr::String(date) => Self::datestring_to_naivedate(&date)?.day(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(date) => Self::datestring_to_naivedate(&date, &rule_name)?.day(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(day)))
     }
@@ -200,8 +202,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let month = match arg {
             Expr::Date(date) => date.month(),
-            Expr::String(date) => Self::datestring_to_naivedate(&date)?.month(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(date) => Self::datestring_to_naivedate(&date, &rule_name)?.month(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(month)))
     }
@@ -212,8 +214,8 @@ impl Formula<'_> {
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let year = match arg {
             Expr::Date(date) => date.year(),
-            Expr::String(date) => Self::datestring_to_naivedate(&date)?.year(),
-            _ => return Err(Error::Parser(rule_name).into()),
+            Expr::String(date) => Self::datestring_to_naivedate(&date, &rule_name)?.year(),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Number(f64::from(year)))
     }
@@ -228,7 +230,7 @@ impl Formula<'_> {
             (Expr::Number(hour), Expr::Number(minute), Expr::Number(second)) => {
                 Expr::Time(NaiveTime::from_hms(hour as u32, minute as u32, second as u32))
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(time)
     }
@@ -243,39 +245,29 @@ impl Formula<'_> {
             (Expr::Number(year), Expr::Number(month), Expr::Number(day)) => {
                 Expr::Date(NaiveDate::from_ymd(year as i32, month as u32, day as u32))
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(date)
     }
 
-    // fn Self::datestring_to_naivedate(datestring: &str) -> NaiveDate {
-    //     let datestring = datestring.trim().trim_matches('\'').trim_matches('"');
-    //
-    //     NaiveDate::parse_from_str(datestring, "%m/%d/%Y")
-    //         .unwrap_or(NaiveDate::parse_from_str(datestring, "%v").ok_or_else(|| Error::Parser(rule_name.clone()))?)
-    // }
-    //
-    // fn Self::timestring_to_naivetime(timestring: &str) -> NaiveTime {
-    //     let timestring = timestring.trim().trim_matches('\'').trim_matches('"');
-    //     NaiveTime::parse_from_str(timestring, "%T")
-    //         .unwrap_or(NaiveTime::parse_from_str(timestring, "%r").ok_or_else(|| Error::Parser(rule_name.clone()))?)
-    // }
-
-    fn datestring_to_naivedate(datestring: &str) -> Result<NaiveDate> {
+    fn datestring_to_naivedate(datestring: &str, rule_name: &str) -> Result<NaiveDate> {
         let mdy = datestring
             .split('/')
             .map(str::parse)
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|_| Error::Parser(rule_name.to_owned()))?;
+        #[allow(clippy::cast_possible_wrap)]
         Ok(NaiveDate::from_ymd(mdy[2] as i32, mdy[0], mdy[1]))
     }
 
-    fn timestring_to_naivetime(timestring: &str) -> Result<NaiveTime> {
+    fn timestring_to_naivetime(timestring: &str, rule_name: &str) -> Result<NaiveTime> {
         let hms = timestring
             .trim_matches('\'')
             .trim_matches('"')
             .split(':')
             .map(str::parse)
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|_| Error::Parser(rule_name.to_owned()))?;
         Ok(NaiveTime::from_hms(hms[0], hms[1], hms[2]))
     }
 
@@ -284,6 +276,19 @@ impl Formula<'_> {
             .unwrap_or_else(|| NaiveDate::from_ymd(year + 1, 1, 1))
             .pred()
             .day()
+    }
+
+    fn shift_months(date: NaiveDate, months: f64) -> NaiveDate {
+        let months = months as i32;
+        let year = date.year() + (months / 12);
+        #[allow(clippy::cast_possible_wrap)]
+        let month = (date.month() as i32 + (months % 12)) as u32;
+        let day = date.day();
+
+        let last_day = Self::last_day_of_month(year, month);
+        let day = if day > last_day { last_day } else { day };
+
+        NaiveDate::from_ymd(year, month, day)
     }
 }
 
@@ -335,9 +340,17 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2020, 6, 30)));
 
+        let formula = Formula::new("=EDATE(DATE(2020,8,25),27)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2022, 11, 25)));
+
         let formula = Formula::new("=EOMONTH('1/20/2020', 5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2020, 6, 30)));
+
+        let formula = Formula::new("=EOMONTH(DATE(2020,8,31),27)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd(2022, 11, 30)));
 
         let formula = Formula::new("=HOUR('02:30:00')").unwrap();
         let value = formula.parse().unwrap();

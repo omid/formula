@@ -1,5 +1,4 @@
-use crate::{error::Error, Expr, Formula, Rule};
-use anyhow::Result;
+use crate::{error::Error, Expr, Formula, Result, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -14,12 +13,12 @@ impl Formula<'_> {
                 for b in bools {
                     match b {
                         Expr::Bool(b) => bool = bool && b,
-                        _ => return Err(Error::Parser(rule_name).into()),
+                        _ => return Err(Error::Parser(rule_name)),
                     }
                 }
                 bool
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(bool))
     }
@@ -35,12 +34,12 @@ impl Formula<'_> {
                 for b in bools {
                     match b {
                         Expr::Bool(b) => bool = bool || b,
-                        _ => return Err(Error::Parser(rule_name).into()),
+                        _ => return Err(Error::Parser(rule_name)),
                     }
                 }
                 bool
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(bool))
     }
@@ -56,12 +55,12 @@ impl Formula<'_> {
                 for b in bools {
                     match b {
                         Expr::Bool(b) => bool = bool != b,
-                        _ => return Err(Error::Parser(rule_name).into()),
+                        _ => return Err(Error::Parser(rule_name)),
                     }
                 }
                 bool
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
 
         Ok(Expr::Bool(bool))
@@ -74,7 +73,7 @@ impl Formula<'_> {
 
         let bool = match bool {
             Expr::Bool(b) => !b,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::Bool(bool))
     }
@@ -101,7 +100,7 @@ impl Formula<'_> {
 
         let value = match value {
             Expr::Null => na_value,
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
 
         Ok(value)
@@ -122,7 +121,7 @@ impl Formula<'_> {
                     false_value
                 }
             }
-            _ => return Err(Error::Parser(rule_name).into()),
+            _ => return Err(Error::Parser(rule_name)),
         };
 
         Ok(value)

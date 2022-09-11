@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased (2022-xx-yy)
 
+## 0.0.3 (2022-09-11)
+
+### Added
+
+- Support of basic mathematics functions
+- Excel array type, eg. `{cell1, cell2; cell3, cell4}`. It's not in use yet, but we may need it in some implementations
+
+### Changed
+
+- Change the Error type from `anyhow::Error` to `formula::error::Error` and remove the dep of anyhow
+
 ## 0.0.2 (2022-09-08)
 
 ### Added
