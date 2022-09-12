@@ -12,7 +12,7 @@ string = ${ Q ~ inner ~ Q }
 inner = @{ char_* }
 char_ = _{
     !(Q | "\\") ~ ANY
-    | "\\" ~ (Q | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ (Q | "\\" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 num = @{

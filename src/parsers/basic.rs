@@ -11,6 +11,15 @@ impl Formula<'_> {
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn parse_string(pair: Pair<Rule>) -> Result<Expr> {
         let string = pair.into_inner().as_str().to_string();
+        let string = string
+            .replace("\\\'", "\'")
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\"")
+            .replace("\\b", "\u{0008}")
+            .replace("\\f", "\u{000C}")
+            .replace("\\\n", "\n")
+            .replace("\\\r", "\r")
+            .replace("\\\t", "\t");
         Ok(Expr::String(string))
     }
 
@@ -78,6 +87,10 @@ mod tests {
         let formula = Formula::new("='TEST'").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("TEST".to_string()));
+
+        let formula = Formula::new("='\\'TEST\\\"'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("'TEST\"".to_string()));
 
         let formula = Formula::new("={}").unwrap();
         let value = formula.parse().unwrap();

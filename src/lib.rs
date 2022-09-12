@@ -26,7 +26,7 @@ Add this library to your project with `cargo add formula` or add `formula = "*"`
 Use it similar to the following code:
 
 ```rust
-use formula::{Formula, Expr, error::Error, Result};
+use formula::{Formula, Expr, Result};
 
 fn main() -> Result<()> {
     let formula = Formula::new("=UPPER(TRIM('   Hello '))")?;
@@ -78,7 +78,7 @@ pub struct Formula<'a> {
 ///
 /// There is a difference between Excel and this library here.
 /// We don't have a `#N/A`, `#VALUE!`, `#DIV/0!`, `#NUM!`, `#NULL!` error types, instead it will return `Expr::Null`.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Expr {
     Date(NaiveDate),
     Datetime(DateTime<Utc>),
@@ -96,7 +96,7 @@ impl<'a> Formula<'a> {
     /// To interpret and prepare a new formula, you need to call the `new` method, like the code below:
     ///
     /// ```rust
-    /// use formula::{Formula, Expr, error::Error, Result};
+    /// use formula::{Formula, Expr, Result};
     ///
     /// fn main() -> Result<()> {
     ///     let formula = Formula::new("=UPPER(TRIM('   Hello '))")?;

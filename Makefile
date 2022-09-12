@@ -1,7 +1,9 @@
 test:
-	@cargo test -- --nocapture
+	@cargo test --all -- --nocapture
+	@for example in examples/*.rs; do \
+         cargo run --example "$$(basename "$${example%.rs}")" -- $$args; \
+     done
 	@cargo doc --no-deps --all-features --examples
-	@cargo test --doc -- --show-output
 
 check:
 	@cargo +nightly fmt

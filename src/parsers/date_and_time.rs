@@ -135,7 +135,6 @@ impl Formula<'_> {
                 NaiveDate::from_ymd(date.year(), date.month(), last_day)
             }
             (Expr::Date(date), Expr::Number(num)) => {
-                dbg!(&date, &num);
                 let date = Self::shift_months(date, num);
                 let last_day = Self::last_day_of_month(date.year(), date.month());
                 NaiveDate::from_ymd(date.year(), date.month(), last_day)
