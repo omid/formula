@@ -54,5 +54,3 @@ We would love to have your contribution! Please read our [contributing guideline
 ### License
 
 This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) file for more info.
-
-License: MIT

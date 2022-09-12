@@ -12,7 +12,7 @@ jobs:
     - name: Install Cargo readme
       run: cargo install cargo-readme
     - name: Run Cargo readme
-      run: cargo readme --no-title > README.md
+      run: cargo readme --no-title --no-license > README.md
     - name: Commit the changes
       uses: stefanzweifel/git-auto-commit-action@v4
       with:
