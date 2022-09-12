@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Support of basic mathematics functions
-- Excel array type, eg. `{cell1, cell2; cell3, cell4}`. It's not in use yet, but we may need it in some implementations
+- Excel array type, e.g. `{cell1, cell2; cell3, cell4}`. It's not in use yet, but we may need it in some implementations
 
 ### Changed
 

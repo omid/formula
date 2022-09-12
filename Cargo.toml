@@ -2,7 +2,7 @@
 name = "formula"
 description = "A parser and evaluator of spreadsheet-like formulas"
 authors = ["Omid Rad <omidmr@gmail.com>"]
-version = "0.0.3"
+version = "0.1.0"
 license = "MIT"
 keywords = ["excel", "formula", "spreadsheet", "parser"]
 categories = ["parser-implementations"]
