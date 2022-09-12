@@ -25,7 +25,7 @@ Add this library to your project with `cargo add formula` or add `formula = "*"`
 Use it similar to the following code:
 
 ```rust
-use formula::{Formula, Expr, error::Error, Result};
+use formula::{Formula, Expr, Result};
 
 fn main() -> Result<()> {
     let formula = Formula::new("=UPPER(TRIM('   Hello '))")?;
