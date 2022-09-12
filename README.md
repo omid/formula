@@ -7,7 +7,7 @@
   A parser and evaluator of spreadsheet-like formulas
 </h3>
 
-Formula is in its early stages and is not ready for production use.
+Formula is in its early stages, so it's better to be used cautiously.
 
 So far we have the following features:
 
