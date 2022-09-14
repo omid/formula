@@ -6,7 +6,7 @@ test:
 	@cargo doc --no-deps --all-features --examples
 
 check:
-	@cargo +nightly fmt
+	@cargo +nightly fmt --all
 	@cargo clippy --fix --allow-dirty --allow-staged --all-targets -- -D warnings -A clippy::extra_unused_lifetimes
 	@cargo update --dry-run
 	@cargo outdated -wR

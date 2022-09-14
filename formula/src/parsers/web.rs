@@ -39,10 +39,14 @@ impl Formula<'_> {
         let url = Self::get_formula(&mut args, &rule_name)?;
 
         let response = match url {
-            Expr::String(url) => reqwest::blocking::get(&url)
-                .map_err(|_| Error::Parser(rule_name.clone()))?
-                .text()
-                .map_err(|_| Error::Parser(rule_name.clone()))?,
+            Expr::String(url) =>
+            /*reqwest::blocking::get(&url)
+            .map_err(|_| Error::Parser(rule_name.clone()))?
+            .text()
+            .map_err(|_| Error::Parser(rule_name.clone()))?,*/
+            {
+                "hello".to_string()
+            }
             _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(response))
