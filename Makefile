@@ -11,6 +11,7 @@ check:
 	@cargo update --dry-run
 	@cargo outdated -wR
 	@cargo +nightly udeps --all-targets
+	@cargo readme --no-title --no-license > README.md
 
 check_nightly: check
 	@cargo +nightly clippy --fix --allow-dirty --allow-staged
