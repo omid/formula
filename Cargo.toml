@@ -6,8 +6,10 @@ debug = 0
 
 [profile.release]
 lto = true
-opt-level = 3
+opt-level = 'z'
 codegen-units = 1
+panic = 'abort'
+strip = true
 
 [patch.crates-io]
 formula = { path = "formula" }

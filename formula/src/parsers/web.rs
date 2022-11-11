@@ -39,17 +39,20 @@ impl Formula<'_> {
         let url = Self::get_formula(&mut args, &rule_name)?;
 
         let response = match url {
-            Expr::String(url) =>
-            /*reqwest::blocking::get(&url)
-            .map_err(|_| Error::Parser(rule_name.clone()))?
-            .text()
-            .map_err(|_| Error::Parser(rule_name.clone()))?,*/
-            {
-                "hello".to_string()
-            }
+            Expr::String(url) => Self::web_request(&url).map_err(|_| Error::Parser(rule_name.clone()))?,
             _ => return Err(Error::Parser(rule_name)),
         };
         Ok(Expr::String(response))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn web_request(url: &str) -> std::result::Result<String, reqwest::Error> {
+        reqwest::blocking::get(url)?.text()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn web_request(url: &str) -> std::result::Result<String, Error> {
+        Ok(url.to_string())
     }
 }
 

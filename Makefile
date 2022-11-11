@@ -20,3 +20,15 @@ check_strictly:
 
 check_very_strictly:
 	@cargo +nightly clippy --fix --allow-dirty --allow-staged --all-features --all-targets -- -W clippy::all -W clippy::pedantic -W clippy::cargo -A clippy::cast_sign_loss -A clippy::cast_possible_truncation -A clippy::cast_precision_loss
+
+wasm_example:
+	@cd formula-wasm; \
+		npm install; \
+		npm run serve
+
+wasm_pack_and_publish:
+	@cd formula-wasm; \
+		cargo build --release; \
+		wasm-pack build --release; \
+		wasm-pack pack; \
+		wasm-pack publish
