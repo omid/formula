@@ -379,6 +379,9 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(2.0));
 
+        let formula = Formula::new("=NOW()").unwrap();
+        formula.parse().unwrap();
+
         // let formula = Formula::new("=WEEKDAY(DATE(2020,1,1), 1)").unwrap();
         // let value = formula.parse().unwrap();
         // assert_eq!(value, Expr::Number(5.0));

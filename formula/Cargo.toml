@@ -1,0 +1,29 @@
+[package]
+name = "formula"
+description = "A parser and evaluator of spreadsheet-like formulas"
+authors = ["Omid Rad <omidmr@gmail.com>"]
+version = "0.1.0"
+license = "MIT"
+keywords = ["excel", "formula", "spreadsheet", "parser"]
+categories = ["parser-implementations"]
+readme = "README.md"
+documentation = "https://docs.rs/formula"
+repository = "https://github.com/omid/formula"
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+chrono = "0.4.22"
+pest = "2.4.0"
+pest_derive = "2.4.0"
+rand = "0.8.5"
+thiserror = "1.0.34"
+urlencoding = "2.1.2"
+#sxd-xpath = "0.4.2"
+#sxd-document = "0.3.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+reqwest = { version = "0.11.11", features = ["blocking"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2.7", features = ["js"] }
