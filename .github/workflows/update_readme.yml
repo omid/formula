@@ -8,13 +8,13 @@ jobs:
   generate_readme:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install Cargo readme
       run: cargo install cargo-readme
     - name: Run Cargo readme
       run: cd formula && cargo readme --no-title --no-license > ../README.md
     - name: Commit the changes
-      uses: stefanzweifel/git-auto-commit-action@v4
+      uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: Update README.md
         file_pattern: README.md

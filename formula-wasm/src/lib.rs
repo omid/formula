@@ -29,10 +29,10 @@ fn array_to_string(arr: Expr) -> String {
             }
             format!("[{}]", strings.join(","))
         }
-        Expr::String(v) => format!("\"{}\"", v),
-        Expr::Date(v) => format!("\"{}\"", v),
-        Expr::Datetime(v) => format!("\"{}\"", v),
-        Expr::Time(v) => format!("\"{}\"", v),
+        Expr::String(v) => format!("\"{v}\""),
+        Expr::Date(v) => format!("\"{v}\""),
+        Expr::Datetime(v) => format!("\"{v}\""),
+        Expr::Time(v) => format!("\"{v}\""),
         Expr::Number(v) => v.to_string(),
         Expr::Bool(v) => v.to_string(),
         Expr::Null => "null".to_string(),

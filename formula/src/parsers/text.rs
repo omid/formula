@@ -312,7 +312,7 @@ impl Formula<'_> {
                 };
 
                 let decimals = decimals as usize;
-                let mut text = format!("{:.*}", decimals, number);
+                let mut text = format!("{number:.decimals$}");
 
                 if !no_commas {
                     // separate text with commas
@@ -342,7 +342,7 @@ impl Formula<'_> {
 
                     match num_and_decimal.get(1) {
                         Some(decimals) => {
-                            text = format!("{}.{}", t, decimals);
+                            text = format!("{t}.{decimals}");
                         }
                         None => {
                             text = t;
@@ -432,7 +432,7 @@ impl Formula<'_> {
                 }
                 let start_text = text.chars().take((start as usize) - 1).collect::<String>();
                 let end_text = text.chars().skip((start + len) as usize - 1).collect::<String>();
-                format!("{}{}{}", start_text, new_text, end_text)
+                format!("{start_text}{new_text}{end_text}")
             }
             _ => return Err(Error::Parser(rule_name)),
         };
