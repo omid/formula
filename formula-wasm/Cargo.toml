@@ -16,5 +16,5 @@ rust-version = "1.59"
 crate-type = ["cdylib"]
 
 [dependencies]
-wasm-bindgen = "0.2.83"
-formula = { version = "0.1.0" }
+wasm-bindgen = "0.2"
+formula = { version = "0.1" }
