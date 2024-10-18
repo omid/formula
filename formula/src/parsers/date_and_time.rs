@@ -185,7 +185,7 @@ impl Formula<'_> {
             _ => return Err(Error::Parser(rule_name)),
         };
 
-        Ok(Expr::Number(days as f64))
+        Ok(Expr::Number(days))
     }
 
     pub(crate) fn parse_day(pair: Pair<Rule>) -> Result<Expr> {
