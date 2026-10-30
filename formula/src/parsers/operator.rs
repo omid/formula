@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn test_parse_web_types() {
+    fn test_parse_operator_types() {
         let formula = Formula::new("=F.ADD(5,6)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(11.0));

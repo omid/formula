@@ -78,7 +78,7 @@ mod tests {
         // let value = formula.parse().unwrap();
         // assert_eq!(value, Expr::String("test".to_string()));
 
-        let formula = Formula::new("=WEBSERVICE('https://gist.githubusercontent.com/omid/3b4ec57e04dded792b14681b9aa1f724/raw/d6400777873f5a0ef7e916a46810a9a9af93dede/test')").unwrap();
+        let formula = Formula::new("=WEBSERVICE('https://gist.githubusercontent.com/omid/e93e7f5a157b293b92c087c0e3e8bc61/raw/e794820ce82b6aa2a989ba64bf713bf27090e430/test')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("test".to_string()));
     }
