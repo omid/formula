@@ -16,14 +16,14 @@ rust-version = "1.73"
 chrono = "0.4"
 pest = "2.7"
 pest_derive = "2.7"
-rand = "0.8"
-thiserror = "1.0"
+rand = "0.10"
+thiserror = "2.0"
 urlencoding = "2.1"
 #sxd-xpath = "0.4"
 #sxd-document = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-reqwest = { version = "0.12", features = ["blocking"] }
+reqwest = { version = "0.13", features = ["blocking"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }

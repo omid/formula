@@ -4,7 +4,7 @@ use urlencoding::encode;
 
 impl Formula<'_> {
     pub(crate) fn parse_encodeurl(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let url = Self::get_formula(&mut args, &rule_name)?;
 
@@ -34,7 +34,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_webservice(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let url = Self::get_formula(&mut args, &rule_name)?;
 

@@ -14,7 +14,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_weekday(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let date = Self::get_formula(&mut args, &rule_name)?;
         // TODO support return type, ref: https://support.microsoft.com/en-us/office/weekday-function-60e44483-2ed1-439f-8bd0-e404c190949a
@@ -53,7 +53,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_isoweeknum(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let second = match arg {
@@ -65,7 +65,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_second(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let second = match arg {
@@ -77,7 +77,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_minute(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let minute = match arg {
@@ -89,7 +89,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_hour(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let hour = match arg {
@@ -101,7 +101,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_timevalue(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let time = match arg {
@@ -112,7 +112,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_datevalue(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let date = match arg {
@@ -123,7 +123,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_eomonth(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let date = Self::get_formula(&mut args, &rule_name)?;
         let num = Self::get_formula(&mut args, &rule_name)?;
@@ -151,7 +151,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_edate(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let date = Self::get_formula(&mut args, &rule_name)?;
         let num = Self::get_formula(&mut args, &rule_name)?;
@@ -168,7 +168,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_days(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let end_date = Self::get_formula(&mut args, &rule_name)?;
         let start_date = Self::get_formula(&mut args, &rule_name)?;
@@ -189,7 +189,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_day(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let day = match arg {
@@ -201,7 +201,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_month(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let month = match arg {
@@ -213,7 +213,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_year(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let arg = Self::get_formula(&mut args, &rule_name)?;
         let year = match arg {
@@ -225,7 +225,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_time(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let hour = Self::get_formula(&mut args, &rule_name)?;
         let minute = Self::get_formula(&mut args, &rule_name)?;
@@ -244,7 +244,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_date(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let year = Self::get_formula(&mut args, &rule_name)?;
         let month = Self::get_formula(&mut args, &rule_name)?;

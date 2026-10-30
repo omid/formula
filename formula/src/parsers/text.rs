@@ -3,7 +3,7 @@ use pest::iterators::Pair;
 
 impl Formula<'_> {
     pub(crate) fn parse_left(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let num_chars = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
@@ -21,7 +21,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_leftb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let num_bytes = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
@@ -41,7 +41,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_right(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let num_chars = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
@@ -63,7 +63,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_rightb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let num_bytes = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
@@ -86,7 +86,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_mid(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let start = Self::get_formula(&mut args, &rule_name)?;
@@ -105,7 +105,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_midb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let start = Self::get_formula(&mut args, &rule_name)?;
@@ -130,7 +130,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_char(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let number = Self::get_formula(&mut args, &rule_name)?;
 
@@ -142,7 +142,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_code(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
 
@@ -161,7 +161,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_concat(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let texts = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
@@ -182,7 +182,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_exact(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text1 = Self::get_formula(&mut args, &rule_name)?;
         let text2 = Self::get_formula(&mut args, &rule_name)?;
@@ -194,7 +194,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_find(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let find_text = Self::get_formula(&mut args, &rule_name)?;
         let within_text = Self::get_formula(&mut args, &rule_name)?;
@@ -219,7 +219,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_findb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let find_text = Self::get_formula(&mut args, &rule_name)?;
         let within_text = Self::get_formula(&mut args, &rule_name)?;
@@ -243,7 +243,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_search(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let search_text = Self::get_formula(&mut args, &rule_name)?;
         let within_text = Self::get_formula(&mut args, &rule_name)?;
@@ -270,7 +270,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_searchb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let search_text = Self::get_formula(&mut args, &rule_name)?;
         let within_text = Self::get_formula(&mut args, &rule_name)?;
@@ -296,7 +296,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_fixed(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let number = Self::get_formula(&mut args, &rule_name)?;
         let decimals = Self::get_opt_formula_with_default(&mut args, Expr::Number(2.0))?;
@@ -357,7 +357,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_len(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let len = match text {
@@ -368,7 +368,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_lenb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let len = match text {
@@ -379,7 +379,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_lower(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
@@ -390,7 +390,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_upper(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
@@ -401,7 +401,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_rept(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let rept = Self::get_formula(&mut args, &rule_name)?;
@@ -418,7 +418,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_replace(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let start = Self::get_formula(&mut args, &rule_name)?;
@@ -440,7 +440,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_replaceb(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let start = Self::get_formula(&mut args, &rule_name)?;
@@ -467,7 +467,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_textjoin(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let delim = Self::get_formula(&mut args, &rule_name)?;
         let ignore_empty = Self::get_formula(&mut args, &rule_name)?;
@@ -496,7 +496,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_trim(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
@@ -507,7 +507,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_t(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {
@@ -518,7 +518,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_proper(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let text = Self::get_formula(&mut args, &rule_name)?;
         let text = match text {

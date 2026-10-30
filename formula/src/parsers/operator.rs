@@ -3,7 +3,7 @@ use pest::iterators::Pair;
 
 impl Formula<'_> {
     pub(crate) fn parse_add(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -16,7 +16,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_sub(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -29,7 +29,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_mul(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -42,7 +42,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_div(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -61,7 +61,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_pow(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -74,7 +74,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_eq(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -92,7 +92,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_ne(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -110,7 +110,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_gt(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -127,7 +127,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_lt(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -144,7 +144,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_gte(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -161,7 +161,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_lte(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, &rule_name)?;
         let operand2 = Self::get_formula(&mut args, &rule_name)?;
@@ -178,7 +178,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_percent(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand = Self::get_formula(&mut args, &rule_name)?;
 
@@ -190,7 +190,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_negate(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let operand = Self::get_formula(&mut args, &rule_name)?;
 

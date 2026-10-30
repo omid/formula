@@ -3,7 +3,7 @@ use pest::iterators::Pair;
 
 impl Formula<'_> {
     pub(crate) fn parse_and(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let bool = Self::get_formula(&mut args, &rule_name)?;
         let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
@@ -24,7 +24,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_or(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let bool = Self::get_formula(&mut args, &rule_name)?;
         let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
@@ -45,7 +45,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_xor(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let bool = Self::get_formula(&mut args, &rule_name)?;
         let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
@@ -67,7 +67,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_not(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let bool = Self::get_formula(&mut args, &rule_name)?;
 
@@ -79,7 +79,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_iferror(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let value = args.next();
         let error_value = args.next().ok_or_else(|| Error::Parser(rule_name.clone()))?;
@@ -93,7 +93,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_ifna(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let value = Self::get_formula(&mut args, &rule_name)?;
         let na_value = Self::get_formula(&mut args, &rule_name)?;
@@ -107,7 +107,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_if(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", &pair.as_rule());
+        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
         let value = Self::get_formula(&mut args, &rule_name)?;
         let true_value = Self::get_opt_formula_with_default(&mut args, Expr::Number(0.0))?;
