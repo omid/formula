@@ -1,6 +1,6 @@
 use super::{
     Evaluator, Result,
-    helper::{as_number, number},
+    helper::{ArgValue, as_number, number},
 };
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
@@ -114,9 +114,15 @@ impl Evaluator<'_> {
         self.parse_unary_number(pair, f64::exp)
     }
 
+    /// Like Excel, the texts, booleans and empty cells of references and arrays don't count
     pub(crate) fn parse_sum(&self, pair: Pair<Rule>) -> Result<Expr> {
-        pair.into_inner()
-            .try_fold(0.0, |sum, arg| Ok(sum + as_number(self.parse_pair(arg)?)?))
+        self.range_args(pair.into_inner())?
+            .into_iter()
+            .try_fold(0.0, |sum, value| match value {
+                ArgValue::Single(value) => Ok(sum + as_number(value)?),
+                ArgValue::InRange(Expr::Number(number)) => Ok(sum + number),
+                ArgValue::InRange(_) => Ok(sum),
+            })
             .map(number)
     }
 }

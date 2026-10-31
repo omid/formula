@@ -22,8 +22,8 @@ use crate::Expr;
 /// let formula = Formula::new("=F.ADD(A2, Sheet2!A3)").unwrap();
 /// assert_eq!(formula.parse_with(&RowNumbers).unwrap(), Expr::Error(ExprError::Reference));
 ///
-/// let formula = Formula::new("=F.ADD(A2, B3)").unwrap();
-/// assert_eq!(formula.parse_with(&RowNumbers).unwrap(), Expr::Number(5.0));
+/// let formula = Formula::new("=SUM(A1:A3)").unwrap();
+/// assert_eq!(formula.parse_with(&RowNumbers).unwrap(), Expr::Number(6.0));
 /// ```
 pub trait Cells {
     /// How many rows and columns of `sheet` have data, or `None` if there's no such sheet, which is `#REF!`.

@@ -1,4 +1,7 @@
-use super::{Evaluator, Result, helper::as_bool};
+use super::{
+    Evaluator, Result,
+    helper::{ArgValue, as_bool},
+};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
@@ -66,7 +69,14 @@ impl Evaluator<'_> {
 
     /// Combines one or more boolean arguments
     fn fold_bools(&self, pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
-        let mut bools = pair.into_inner().map(|arg| as_bool(self.parse_pair(arg)?));
+        let values = self.range_args(pair.into_inner())?;
+        // like Excel, numbers in references and arrays are booleans, their texts and empty cells don't count
+        let mut bools = values.into_iter().filter_map(|value| match value {
+            ArgValue::Single(value) => Some(as_bool(value)),
+            ArgValue::InRange(Expr::Bool(bool)) => Some(Ok(bool)),
+            ArgValue::InRange(Expr::Number(number)) => Some(Ok(number != 0.0)),
+            ArgValue::InRange(_) => None,
+        });
         let first = bools.next().ok_or(ExprError::Value)??;
 
         bools.try_fold(first, |bool, b| Ok(f(bool, b?))).map(Expr::Bool)

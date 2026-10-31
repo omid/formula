@@ -228,6 +228,72 @@ mod tests {
     }
 
     #[test]
+    fn test_range_functions() {
+        // 1, 'a', TRUE / empty, 2, '3' / 0.1 + 0.2
+        let mixed = vec![
+            vec![1.into(), "a".into(), true.into()],
+            vec![Expr::Null, 2.into(), "3".into()],
+            vec![(0.1 + 0.2).into()],
+        ];
+        let parse_mixed = |formula| Formula::new(formula).unwrap().parse_with(&mixed).unwrap();
+
+        // SUM only adds the numbers of references and arrays
+        assert_eq!(parse("=SUM(A1:C1)"), Expr::Number(6.0));
+        assert_eq!(parse("=SUM(A:A, 1)"), Expr::Number(13.0));
+        assert_eq!(parse("=SUM(A1:B2)"), Expr::Number(7.0));
+        assert_eq!(parse_mixed("=SUM(A1:C2)"), Expr::Number(3.0));
+        assert_eq!(parse_mixed("=SUM(B1)"), Expr::Number(0.0));
+        assert_eq!(parse("=SUM({1, 'a', TRUE; 2, 3, 4})"), Expr::Number(10.0));
+        assert_eq!(parse("=SUM(IF(TRUE, A1:B1))"), Expr::Number(3.0));
+        // other arguments must be numbers
+        assert_eq!(parse("=SUM('a', 1)"), Expr::Error(ExprError::Value));
+        // errors propagate
+        assert_eq!(parse("=SUM(A1:C3)"), Expr::Error(ExprError::DivisionByZero));
+        assert_eq!(parse("=SUM({1, F.DIV(1, 0)})"), Expr::Error(ExprError::DivisionByZero));
+
+        // logical functions read the booleans and numbers of references and arrays
+        assert_eq!(parse("=AND(A1:B1)"), Expr::Bool(true));
+        assert_eq!(parse_mixed("=AND(A1:C2)"), Expr::Bool(true));
+        assert_eq!(parse("=AND(TRUE, B2)"), Expr::Bool(true));
+        assert_eq!(parse("=OR({FALSE, 0})"), Expr::Bool(false));
+        assert_eq!(parse("=OR(B2:B2, {'a', 1})"), Expr::Bool(true));
+        assert_eq!(parse("=XOR({TRUE, TRUE, TRUE})"), Expr::Bool(true));
+        // no booleans at all
+        assert_eq!(parse("=AND(B2)"), Expr::Error(ExprError::Value));
+        assert_eq!(parse_mixed("=OR(B1)"), Expr::Error(ExprError::Value));
+        assert_eq!(parse("=AND('a')"), Expr::Error(ExprError::Value));
+        assert_eq!(parse("=OR(A3:C3)"), Expr::Error(ExprError::DivisionByZero));
+
+        // text functions read the texts, numbers and booleans of references and arrays
+        assert_eq!(parse("=CONCAT(A1:C1)"), Expr::from("123"));
+        assert_eq!(parse("=CONCAT(A1, ' items')"), Expr::from("1 items"));
+        assert_eq!(parse_mixed("=CONCATENATE(A1:C3)"), Expr::from("1aTRUE230.3"));
+        assert_eq!(
+            parse("=CONCAT({-1.5, F.DIV(1, 3), 1e15})"),
+            Expr::from("-1.50.3333333333333331E+15")
+        );
+        assert_eq!(
+            parse_mixed("=TEXTJOIN(', ', TRUE, A1:C2)"),
+            Expr::from("1, a, TRUE, 2, 3")
+        );
+        assert_eq!(parse_mixed("=TEXTJOIN('-', FALSE, A2:B2)"), Expr::from("-2"));
+        // other arguments must be texts
+        assert_eq!(parse("=CONCAT(1)"), Expr::Error(ExprError::Value));
+        assert_eq!(parse("=CONCAT({DATE(2020, 1, 1)})"), Expr::Error(ExprError::Value));
+        assert_eq!(
+            parse("=TEXTJOIN('', TRUE, B3:C3)"),
+            Expr::Error(ExprError::DivisionByZero)
+        );
+        // Excel's maximum text length
+        assert!(matches!(parse("=CONCAT(REPT('a', 32767), B2)"), Expr::String(text) if text.len() == 32_767));
+        assert_eq!(parse("=CONCAT(REPT('a', 32767), 'a')"), Expr::Error(ExprError::Value));
+        assert_eq!(
+            parse("=TEXTJOIN(',', TRUE, REPT('a', 20000), REPT('a', 20000))"),
+            Expr::Error(ExprError::Value)
+        );
+    }
+
+    #[test]
     fn test_ranges() {
         // a single row is flat, like array literals
         assert_eq!(parse("=A1:C1"), row(&[1.into(), 2.into(), 3.into()]));

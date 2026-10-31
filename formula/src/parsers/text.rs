@@ -1,4 +1,7 @@
-use super::{Evaluator, Result, helper::as_text};
+use super::{
+    Evaluator, Result,
+    helper::{ArgValue, as_text, number_to_text},
+};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
@@ -123,12 +126,12 @@ impl Evaluator<'_> {
     }
 
     pub(crate) fn parse_concat(&self, pair: Pair<Rule>) -> Result<Expr> {
-        pair.into_inner()
-            .try_fold(String::new(), |mut text, arg| {
-                text.push_str(&as_text(self.parse_pair(arg)?)?);
-                Ok(text)
-            })
-            .map(Expr::String)
+        let texts = self
+            .range_args(pair.into_inner())?
+            .into_iter()
+            .map(Self::range_text)
+            .collect::<Result<Vec<_>>>()?;
+        Self::long_text(texts.concat())
     }
 
     pub(crate) fn parse_exact(&self, pair: Pair<Rule>) -> Result<Expr> {
@@ -255,11 +258,13 @@ impl Evaluator<'_> {
         let delim = self.get_text(&mut args)?;
         let ignore_empty = self.get_bool(&mut args)?;
 
-        let texts = args
-            .map(|arg| as_text(self.parse_pair(arg)?))
+        let texts = self
+            .range_args(args)?
+            .into_iter()
+            .map(Self::range_text)
             .filter(|t| !(ignore_empty && t.as_ref().is_ok_and(String::is_empty)))
             .collect::<Result<Vec<_>>>()?;
-        Ok(Expr::String(texts.join(&delim)))
+        Self::long_text(texts.join(&delim))
     }
 
     /// Like Excel, only spaces are removed and the inner runs of spaces become one space
@@ -298,6 +303,24 @@ impl Evaluator<'_> {
             }
             Expr::String(proper)
         })
+    }
+
+    /// Like Excel, the numbers and booleans of references and arrays become texts
+    fn range_text(value: ArgValue) -> Result<String> {
+        match value {
+            ArgValue::InRange(Expr::Number(number)) => Ok(number_to_text(number)),
+            ArgValue::InRange(Expr::Bool(bool)) => Ok(if bool { "TRUE" } else { "FALSE" }.to_string()),
+            ArgValue::Single(value) | ArgValue::InRange(value) => as_text(value),
+        }
+    }
+
+    /// Like Excel, texts longer than 32,767 characters are `#VALUE!`
+    fn long_text(text: String) -> Result<Expr> {
+        if text.chars().count() <= MAX_TEXT_LEN {
+            Ok(Expr::String(text))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     /// Evaluates a function that takes one text
