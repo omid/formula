@@ -123,14 +123,16 @@ impl Evaluator<'_> {
 
     /// Like Excel, the texts, booleans and empty cells of references and arrays don't count
     pub(crate) fn parse_sum(&self, pair: Pair<Rule>) -> Result<Expr> {
-        self.range_args(pair.into_inner())?
-            .into_iter()
-            .try_fold(0.0, |sum, value| match value {
-                ArgValue::Single(value) => Ok(sum + as_number(&value)?),
-                ArgValue::InRange(Expr::Number(number)) => Ok(sum + number),
-                ArgValue::InRange(_) => Ok(sum),
-            })
-            .map(number)
+        let mut sum = 0.0;
+        self.for_each_value(pair.into_inner(), |value| {
+            match value {
+                ArgValue::Single(value) => sum += as_number(&value)?,
+                ArgValue::InRange(Expr::Number(number)) => sum += number,
+                ArgValue::InRange(_) => {}
+            }
+            Ok(())
+        })?;
+        Ok(number(sum))
     }
 }
 

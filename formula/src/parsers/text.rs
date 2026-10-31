@@ -3,7 +3,8 @@ use super::{
     helper::{ArgValue, as_text, number_to_text},
 };
 use crate::{Expr, ExprError, Rule};
-use pest::iterators::Pair;
+use pest::iterators::{Pair, Pairs};
+use std::borrow::Cow;
 
 /// Excel's maximum text length
 const MAX_TEXT_LEN: usize = 32_767;
@@ -126,12 +127,7 @@ impl Evaluator<'_> {
     }
 
     pub(crate) fn parse_concat(&self, pair: Pair<Rule>) -> Result<Expr> {
-        let texts = self
-            .range_args(pair.into_inner())?
-            .into_iter()
-            .map(Self::range_text)
-            .collect::<Result<Vec<_>>>()?;
-        Self::long_text(texts.concat())
+        self.join_texts(pair.into_inner(), "", false)
     }
 
     pub(crate) fn parse_exact(&self, pair: Pair<Rule>) -> Result<Expr> {
@@ -258,13 +254,7 @@ impl Evaluator<'_> {
         let delim = self.get_text(&mut args)?;
         let ignore_empty = self.get_bool(&mut args)?;
 
-        let texts = self
-            .range_args(args)?
-            .into_iter()
-            .map(Self::range_text)
-            .filter(|t| !(ignore_empty && t.as_ref().is_ok_and(String::is_empty)))
-            .collect::<Result<Vec<_>>>()?;
-        Self::long_text(texts.join(&delim))
+        self.join_texts(args, &delim, ignore_empty)
     }
 
     /// Like Excel, only spaces are removed and the inner runs of spaces become one space
@@ -305,22 +295,39 @@ impl Evaluator<'_> {
         })
     }
 
-    /// Like Excel, the numbers and booleans of references and arrays become texts
-    fn range_text(value: ArgValue) -> Result<String> {
-        match value {
-            ArgValue::InRange(Expr::Number(number)) => Ok(number_to_text(number)),
-            ArgValue::InRange(Expr::Bool(bool)) => Ok(if bool { "TRUE" } else { "FALSE" }.to_string()),
-            ArgValue::Single(value) | ArgValue::InRange(value) => as_text(value),
-        }
-    }
+    /// Joins the texts of the arguments with `delim`. Like Excel, the numbers and booleans of references
+    /// and arrays become texts, and texts longer than 32,767 characters are `#VALUE!`.
+    fn join_texts(&self, args: Pairs<Rule>, delim: &str, ignore_empty: bool) -> Result<Expr> {
+        let mut text = String::new();
+        let mut chars = 0;
+        let mut first = true;
+        self.for_each_value(args, |value| {
+            let part = match value {
+                ArgValue::InRange(Expr::Number(number)) => Cow::Owned(number_to_text(number)),
+                ArgValue::InRange(Expr::Bool(bool)) => Cow::Borrowed(if bool { "TRUE" } else { "FALSE" }),
+                ArgValue::Single(value) | ArgValue::InRange(value) => Cow::Owned(as_text(value)?),
+            };
+            if ignore_empty && part.is_empty() {
+                return Ok(());
+            }
 
-    /// Like Excel, texts longer than 32,767 characters are `#VALUE!`
-    fn long_text(text: String) -> Result<Expr> {
-        if text.chars().count() <= MAX_TEXT_LEN {
-            Ok(Expr::String(text))
-        } else {
-            Err(ExprError::Value)
-        }
+            let delim = if first { "" } else { delim };
+            first = false;
+            chars += delim.chars().count() + part.chars().count();
+            if chars > MAX_TEXT_LEN {
+                return Err(ExprError::Value);
+            }
+
+            if text.is_empty() && delim.is_empty() {
+                // the first text is the start of the result, without copying it
+                text = part.into_owned();
+            } else {
+                text.push_str(delim);
+                text.push_str(&part);
+            }
+            Ok(())
+        })?;
+        Ok(Expr::String(text))
     }
 
     /// Evaluates a function that takes one text

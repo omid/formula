@@ -69,30 +69,29 @@ pub(crate) enum ArgValue {
 }
 
 impl Evaluator<'_> {
-    /// The values of the arguments, with the values of references and arrays flattened.
-    /// Like Excel, the errors in them propagate.
-    pub(crate) fn range_args(&self, args: Pairs<Rule>) -> Result<Vec<ArgValue>> {
-        let mut values = Vec::new();
+    /// Calls `f` with the values of the arguments, the cells of references are read one by one
+    /// and arrays are flattened. Like Excel, the errors in them propagate.
+    pub(crate) fn for_each_value(&self, args: Pairs<Rule>, mut f: impl FnMut(ArgValue) -> Result<()>) -> Result<()> {
         for arg in args {
-            let is_reference = arg.as_rule() == Rule::reference;
-            match self.parse_pair(arg)? {
-                Expr::Array(array) => Self::flatten(array, &mut values)?,
-                value if is_reference => values.push(ArgValue::InRange(value)),
-                value => values.push(ArgValue::Single(value)),
-            }
-        }
-        Ok(values)
-    }
-
-    fn flatten(array: Vec<Expr>, values: &mut Vec<ArgValue>) -> Result<()> {
-        for value in array {
-            match value {
-                Expr::Array(array) => Self::flatten(array, values)?,
-                Expr::Error(error) => return Err(error),
-                value => values.push(ArgValue::InRange(value)),
+            if arg.as_rule() == Rule::reference {
+                self.for_each_cell(arg, |value| Self::range_value(value, &mut f))?;
+            } else {
+                match self.parse_pair(arg)? {
+                    array @ Expr::Array(_) => Self::range_value(array, &mut f)?,
+                    value => f(ArgValue::Single(value))?,
+                }
             }
         }
         Ok(())
+    }
+
+    /// A value of a reference or an array, with nested arrays flattened
+    fn range_value(value: Expr, f: &mut impl FnMut(ArgValue) -> Result<()>) -> Result<()> {
+        match value {
+            Expr::Array(array) => array.into_iter().try_for_each(|value| Self::range_value(value, f)),
+            Expr::Error(error) => Err(error),
+            value => f(ArgValue::InRange(value)),
+        }
     }
 
     pub(crate) fn get_formula(&self, args: &mut Pairs<Rule>) -> Result<Expr> {

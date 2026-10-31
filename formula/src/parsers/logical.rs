@@ -69,17 +69,19 @@ impl Evaluator<'_> {
 
     /// Combines one or more boolean arguments
     fn fold_bools(&self, pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
-        let values = self.range_args(pair.into_inner())?;
-        // like Excel, numbers in references and arrays are booleans, their texts and empty cells don't count
-        let mut bools = values.into_iter().filter_map(|value| match value {
-            ArgValue::Single(value) => Some(as_bool(&value)),
-            ArgValue::InRange(Expr::Bool(bool)) => Some(Ok(bool)),
-            ArgValue::InRange(Expr::Number(number)) => Some(Ok(number != 0.0)),
-            ArgValue::InRange(_) => None,
-        });
-        let first = bools.next().ok_or(ExprError::Value)??;
-
-        bools.try_fold(first, |bool, b| Ok(f(bool, b?))).map(Expr::Bool)
+        let mut result = None;
+        self.for_each_value(pair.into_inner(), |value| {
+            // like Excel, numbers in references and arrays are booleans, their texts and empty cells don't count
+            let bool = match value {
+                ArgValue::Single(value) => as_bool(&value)?,
+                ArgValue::InRange(Expr::Bool(bool)) => bool,
+                ArgValue::InRange(Expr::Number(number)) => number != 0.0,
+                ArgValue::InRange(_) => return Ok(()),
+            };
+            result = Some(result.map_or(bool, |result| f(result, bool)));
+            Ok(())
+        })?;
+        result.map(Expr::Bool).ok_or(ExprError::Value)
     }
 }
 

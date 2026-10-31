@@ -1,6 +1,7 @@
 use super::{Evaluator, Result};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
+use std::ops::RangeInclusive;
 
 /// Excel's last column, `XFD`
 const MAX_COLUMN: u32 = 16_384;
@@ -71,25 +72,14 @@ impl Evaluator<'_> {
     pub(crate) fn parse_reference(&self, pair: Pair<Rule>) -> Result<Expr> {
         // `Formula::new` rejected the references outside of a sheet
         let reference = Reference::new(pair).ok_or(ExprError::Reference)?;
+        let (rows, columns) = self.area(&reference)?;
         let sheet = reference.sheet.as_deref();
-        let size = self.cells.size(sheet).ok_or(ExprError::Reference)?;
-        let read = |row, column| self.cells.cell(sheet, row, column).unwrap_or(Expr::Null);
-
-        // whole columns and rows only cover the cells with data
-        let (first_row, last_row) = reference.rows.unwrap_or((1, size.rows));
-        let (first_column, last_column) = reference.columns.unwrap_or((1, size.columns));
         if reference.is_cell {
-            return Ok(read(first_row, first_column));
+            return Ok(self.read(sheet, *rows.start(), *columns.start()));
         }
 
-        let height = (u64::from(last_row) + 1).saturating_sub(u64::from(first_row));
-        let width = (u64::from(last_column) + 1).saturating_sub(u64::from(first_column));
-        if height * width > MAX_RANGE_CELLS {
-            return Err(ExprError::Number);
-        }
-
-        let mut rows = (first_row..=last_row)
-            .map(|row| Expr::Array((first_column..=last_column).map(|column| read(row, column)).collect()))
+        let mut rows = rows
+            .map(|row| Expr::Array(columns.clone().map(|column| self.read(sheet, row, column)).collect()))
             .collect::<Vec<_>>();
 
         // like array literals, a single row is flat
@@ -98,6 +88,41 @@ impl Evaluator<'_> {
         } else {
             Ok(Expr::Array(rows))
         }
+    }
+
+    /// Calls `f` with each cell of a reference, row by row, without building arrays like `parse_reference`
+    pub(crate) fn for_each_cell(&self, pair: Pair<Rule>, mut f: impl FnMut(Expr) -> Result<()>) -> Result<()> {
+        let reference = Reference::new(pair).ok_or(ExprError::Reference)?;
+        let (rows, columns) = self.area(&reference)?;
+        let sheet = reference.sheet.as_deref();
+        for row in rows {
+            for column in columns.clone() {
+                f(self.read(sheet, row, column))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The rows and columns that a reference reads, whole columns and rows only cover the cells with data
+    fn area(&self, reference: &Reference) -> Result<(RangeInclusive<u32>, RangeInclusive<u32>)> {
+        let size = self
+            .cells
+            .size(reference.sheet.as_deref())
+            .ok_or(ExprError::Reference)?;
+        let (first_row, last_row) = reference.rows.unwrap_or((1, size.rows));
+        let (first_column, last_column) = reference.columns.unwrap_or((1, size.columns));
+
+        let height = (u64::from(last_row) + 1).saturating_sub(u64::from(first_row));
+        let width = (u64::from(last_column) + 1).saturating_sub(u64::from(first_column));
+        if height * width > MAX_RANGE_CELLS {
+            return Err(ExprError::Number);
+        }
+        Ok((first_row..=last_row, first_column..=last_column))
+    }
+
+    /// An empty cell is `Expr::Null`
+    fn read(&self, sheet: Option<&str>, row: u32, column: u32) -> Expr {
+        self.cells.cell(sheet, row, column).unwrap_or(Expr::Null)
     }
 }
 
@@ -149,6 +174,41 @@ mod tests {
         fn cell(&self, _sheet: Option<&str>, _row: u32, _column: u32) -> Option<Expr> {
             Some(Expr::Number(1.0))
         }
+    }
+
+    /// A million rows of 10 character texts, that counts how many cells are read
+    struct Counted {
+        reads: std::cell::Cell<u32>,
+    }
+
+    impl Cells for Counted {
+        fn size(&self, _sheet: Option<&str>) -> Option<Size> {
+            Some(Size {
+                rows: 1_000_000,
+                columns: 1,
+            })
+        }
+
+        fn cell(&self, _sheet: Option<&str>, _row: u32, _column: u32) -> Option<Expr> {
+            self.reads.set(self.reads.get() + 1);
+            Some(Expr::from("0123456789"))
+        }
+    }
+
+    #[test]
+    fn test_range_functions_read_cells_one_by_one() {
+        let cells = Counted { reads: 0.into() };
+
+        // CONCAT stops at Excel's maximum text length, instead of reading the whole column first
+        let formula = Formula::new("=CONCAT(A:A)").unwrap();
+        assert_eq!(formula.parse_with(&cells).unwrap(), Expr::Error(ExprError::Value));
+        assert_eq!(cells.reads.get(), 3_277);
+
+        // each cell is read once
+        cells.reads.set(0);
+        let formula = Formula::new("=SUM(A1:A10, A5)").unwrap();
+        assert_eq!(formula.parse_with(&cells).unwrap(), Expr::Number(0.0));
+        assert_eq!(cells.reads.get(), 11);
     }
 
     #[test]
