@@ -63,7 +63,6 @@ mod tests {
     use crate::Formula;
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_web_types() {
         let formula =
             Formula::new("=ENCODEURL('http://contoso.sharepoint.com/Finance/Profit and Loss Statement.xlsx')").unwrap();
@@ -79,11 +78,54 @@ mod tests {
         // let value = formula.parse().unwrap();
         // assert_eq!(value, Expr::String("test".to_string()));
 
-        let formula = Formula::new("=WEBSERVICE('https://gist.githubusercontent.com/omid/e93e7f5a157b293b92c087c0e3e8bc61/raw/e794820ce82b6aa2a989ba64bf713bf27090e430/test')").unwrap();
-        let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::String("test".to_string()));
-
         let formula = Formula::new("=FILTERXML('<a/>', '/a')").unwrap();
         assert!(matches!(formula.parse(), Err(Error::NotImplemented(_))));
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_parse_webservice() {
+        let formula = format!("=WEBSERVICE('{}')", serve_once("200 OK", "test"));
+        let value = Formula::new(&formula).unwrap().parse().unwrap();
+        assert_eq!(value, Expr::String("test".to_string()));
+
+        let formula = format!("=WEBSERVICE('{}')", serve_once("404 Not Found", "404: Not Found"));
+        assert!(Formula::new(&formula).unwrap().parse().is_err());
+
+        let formula = format!("=WEBSERVICE('{}')", serve_once("500 Internal Server Error", "error"));
+        assert!(Formula::new(&formula).unwrap().parse().is_err());
+
+        let formula = Formula::new("=WEBSERVICE('not a url')").unwrap();
+        assert!(formula.parse().is_err());
+    }
+
+    /// Answers one HTTP request on a local port with `status` and `body`, and returns its URL
+    #[cfg(not(target_arch = "wasm32"))]
+    fn serve_once(status: &'static str, body: &'static str) -> String {
+        use std::{
+            io::{BufRead, BufReader, Write},
+            net::TcpListener,
+        };
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+
+            // read the request until the empty line that ends its headers
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut line = String::new();
+            while reader.read_line(&mut line).unwrap() > 2 {
+                line.clear();
+            }
+
+            let len = body.len();
+            write!(
+                stream,
+                "HTTP/1.1 {status}\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n{body}"
+            )
+            .unwrap();
+        });
+        url
     }
 }
