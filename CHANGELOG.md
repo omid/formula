@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `formula-wasm`'s `parse` takes optional rows of values, e.g. `parse('=SUM(A1:B2)', [[1, 2], [3, null]])`
 - `#REF!` (`ExprError::Reference`) for references to sheets that don't exist
 - `Expr` converts from numbers, booleans, texts, dates, times, errors and options, to build table data
+- `formula-wasm`'s tests run in Node, with `make test_wasm` and in CI
+- A test that 20,000 random formulas never panic, and tests for the functions and branches that had none
+- `make coverage` measures the test coverage with `cargo-llvm-cov`
 
 ### Changed
 
