@@ -1,130 +1,80 @@
+use super::helper::parser_error;
 use crate::{error::Error, Expr, Formula, Result, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
     pub(crate) fn parse_and(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
-        let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
-
-        let bool = match bool {
-            Expr::Bool(mut bool) => {
-                for b in bools {
-                    match b {
-                        Expr::Bool(b) => bool = bool && b,
-                        _ => return Err(Error::Parser(rule_name)),
-                    }
-                }
-                bool
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(bool))
+        Self::fold_bools(pair, |bool, b| bool && b)
     }
 
     pub(crate) fn parse_or(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
-        let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
-
-        let bool = match bool {
-            Expr::Bool(mut bool) => {
-                for b in bools {
-                    match b {
-                        Expr::Bool(b) => bool = bool || b,
-                        _ => return Err(Error::Parser(rule_name)),
-                    }
-                }
-                bool
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(bool))
+        Self::fold_bools(pair, |bool, b| bool || b)
     }
 
     pub(crate) fn parse_xor(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
-        let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
-
-        let bool = match bool {
-            Expr::Bool(mut bool) => {
-                for b in bools {
-                    match b {
-                        Expr::Bool(b) => bool = bool != b,
-                        _ => return Err(Error::Parser(rule_name)),
-                    }
-                }
-                bool
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-
-        Ok(Expr::Bool(bool))
+        Self::fold_bools(pair, |bool, b| bool != b)
     }
 
     pub(crate) fn parse_not(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
+        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
 
-        let bool = match bool {
-            Expr::Bool(b) => !b,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(bool))
+        match Self::get_formula(&mut args, rule)? {
+            Expr::Bool(b) => Ok(Expr::Bool(!b)),
+            _ => Err(parser_error(rule)),
+        }
     }
 
+    /// Falls back on invalid formulas and on spreadsheet errors (`Expr::Null`).
+    /// Functions that are not implemented yet still return their error.
     pub(crate) fn parse_iferror(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
+        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let value = args.next();
-        let error_value = args.next().ok_or_else(|| Error::Parser(rule_name.clone()))?;
+        let value = args.next().ok_or_else(|| parser_error(rule))?;
+        let error_value = args.next().ok_or_else(|| parser_error(rule))?;
 
-        let value = value.unwrap_or_else(|| error_value.clone());
-        let value = Self::parse_pair(value)
-            .or_else(|_| Self::parse_pair(error_value))
-            .map_err(|_| Error::Parser(rule_name))?;
-
-        Ok(value)
+        match Self::parse_pair(value) {
+            Ok(Expr::Null) | Err(Error::Parser(_)) => Self::parse_pair(error_value),
+            value => value,
+        }
     }
 
     pub(crate) fn parse_ifna(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
+        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let value = Self::get_formula(&mut args, &rule_name)?;
-        let na_value = Self::get_formula(&mut args, &rule_name)?;
+        let value = Self::get_formula(&mut args, rule)?;
 
-        let value = match value {
-            Expr::Null => na_value,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-
-        Ok(value)
+        match value {
+            Expr::Null => Self::get_formula(&mut args, rule),
+            value => Ok(value),
+        }
     }
 
+    /// Only the selected branch is evaluated
     pub(crate) fn parse_if(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
+        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let value = Self::get_formula(&mut args, &rule_name)?;
-        let true_value = Self::get_opt_formula_with_default(&mut args, Expr::Number(0.0))?;
-        let false_value = Self::get_opt_formula_with_default(&mut args, Expr::Number(0.0))?;
+        let condition = Self::get_formula(&mut args, rule)?;
+        let true_value = args.next().ok_or_else(|| parser_error(rule))?;
+        let false_value = args.next();
 
-        let value = match value {
-            Expr::Bool(b) => {
-                if b {
-                    true_value
-                } else {
-                    false_value
-                }
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
+        match condition {
+            Expr::Bool(true) => Self::parse_pair(true_value),
+            Expr::Bool(false) => false_value.map_or(Ok(Expr::Bool(false)), Self::parse_pair),
+            _ => Err(parser_error(rule)),
+        }
+    }
 
-        Ok(value)
+    /// Combines one or more boolean arguments
+    fn fold_bools(pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
+        let rule = pair.as_rule();
+        let mut bools = pair.into_inner().map(|arg| match Self::parse_pair(arg)? {
+            Expr::Bool(b) => Ok(b),
+            _ => Err(parser_error(rule)),
+        });
+        let first = bools.next().ok_or_else(|| parser_error(rule))??;
+
+        bools.try_fold(first, |bool, b| Ok(f(bool, b?))).map(Expr::Bool)
     }
 }
 
@@ -164,16 +114,42 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Bool(true));
 
-        // let formula = Formula::new("=IFNA(x, 'not found')").unwrap();
-        // let value = formula.parse().unwrap();
-        // assert_eq!(value, Expr::String("not found".to_string()));
+        let formula = Formula::new("=IFNA(F.DIV(1, 0), 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("not found".to_string()));
+
+        let formula = Formula::new("=IFNA(5, 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(5.0));
 
         let formula = Formula::new("=IFERROR(NOT('a'), 'err')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("err".to_string()));
 
+        let formula = Formula::new("=IFERROR(F.DIV(1, 0), 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=IFERROR(5, 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(5.0));
+
+        let formula = Formula::new("=IFERROR(ROUND(1, 0), 'err')").unwrap();
+        assert!(formula.parse().is_err());
+
         let formula = Formula::new("=IF(TRUE, 'true', 'false')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("true".to_string()));
+
+        let formula = Formula::new("=IF(TRUE, 1, F.ADD('a', 1))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(1.0));
+
+        let formula = Formula::new("=IF(FALSE, 1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=AND(TRUE, 1)").unwrap();
+        assert!(formula.parse().is_err());
     }
 }

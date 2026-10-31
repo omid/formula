@@ -8,11 +8,11 @@ F = _{ formula } // any of the formulas
 CF = _{ C ~ F } // combination of comma and any of the formulas
 
 // Basic types
-string = ${ Q ~ inner ~ Q }
-inner = @{ char_* }
-char_ = _{
-    !(Q | "\\") ~ ANY
-    | "\\" ~ (Q | "\\" | "b" | "f" | "n" | "r" | "t")
+string = ${ "'" ~ inner_single ~ "'" | "\"" ~ inner_double ~ "\"" }
+inner_single = @{ (!("'" | "\\") ~ ANY | escape)* }
+inner_double = @{ (!("\"" | "\\") ~ ANY | escape)* }
+escape = _{
+    "\\" ~ (Q | "\\" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 num = @{
@@ -80,8 +80,8 @@ minute = { ^"MINUTE" ~ OP ~ F ~ CP }
 second = { ^"SECOND" ~ OP ~ F ~ CP }
 networkdays = { ^"NETWORKDAYS" ~ OP ~ F ~ CF ~ CF? ~ CP }
 networkdaysintl = { (^"NETWORKDAYSINTL" | ^"NETWORKDAYS.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
-workdays = { ^"WORKDAYS" ~ OP ~ F ~ CF ~ CF? ~ CP }
-workdaysintl = { (^"WORKDAYSINTL" | ^"WORKDAYS.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
+workdays = { ^"WORKDAY" ~ OP ~ F ~ CF ~ CF? ~ CP }
+workdaysintl = { (^"WORKDAYINTL" | ^"WORKDAY.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
 weekday = { ^"WEEKDAY" ~ OP ~ F ~ CF? ~ CP }
 weeknum = { ^"WEEKNUM" ~ OP ~ F ~ CF? ~ CP }
 isoweeknum = { ^"ISOWEEKNUM" ~ OP ~ F ~ CP }
@@ -106,6 +106,8 @@ datetime_functions = _{
     | second
     | networkdays
     | networkdaysintl
+    | workdays
+    | workdaysintl
     | weekday
     | weeknum
     | isoweeknum
@@ -448,7 +450,7 @@ not = { ^"NOT" ~ OP ~ F ~ CP }
 or = { ^"OR" ~ OP ~ F  ~ CF* ~ CP }
 reduce = { ^"REDUCE" ~ OP ~ F ~ CP }
 scan = { ^"SCAN" ~ OP ~ F ~ CP }
-switch = { ^"SWITCH" ~ OP ~ F ~ CF ~ CF ~ CF* ~ CF ~ CP }
+switch = { ^"SWITCH" ~ OP ~ F ~ CF ~ CF ~ CF* ~ CP }
 xor = { ^"XOR" ~ OP ~ F ~ CF* ~ CP }
 logical_functions = _{
     and
@@ -503,7 +505,7 @@ fact = { ^"FACT" ~ OP ~ F ~ CP }
 factdouble = { ^"FACTDOUBLE" ~ OP ~ F ~ CP }
 floor = { ^"FLOOR" ~ OP ~ F ~ CF ~ CP }
 floor_math = { ^"FLOOR.MATH" ~ OP ~ F ~ CF? ~ CF? ~ CP }
-floor_precise = { ^"CEILING.PRECISE" ~ OP ~ F ~ CF? ~ CP }
+floor_precise = { ^"FLOOR.PRECISE" ~ OP ~ F ~ CF? ~ CP }
 gcd = { ^"GCD" ~ OP ~ F ~ CF* ~ CP }
 int = { ^"INT" ~ OP ~ F ~ CP }
 iso_ceiling = { ^"ISO.CEILING" ~ OP ~ F ~ CF? ~ CP }
@@ -886,5 +888,5 @@ formula = _{
 }
 
 root = _{
-    "=" ~ formula
+    SOI ~ "=" ~ formula ~ EOI
 }

@@ -359,8 +359,9 @@ impl<'a> Formula<'a> {
             | Rule::CP
             | Rule::C
             | Rule::Q
-            | Rule::inner
-            | Rule::char_
+            | Rule::inner_single
+            | Rule::inner_double
+            | Rule::escape
             | Rule::array_row_sep
             | Rule::array_col_sep
             | Rule::basic_types
@@ -370,7 +371,8 @@ impl<'a> Formula<'a> {
             | Rule::logical_functions
             | Rule::math_functions
             | Rule::web_functions
-            | Rule::WHITESPACE => {
+            | Rule::WHITESPACE
+            | Rule::EOI => {
                 unreachable!()
             }
         };

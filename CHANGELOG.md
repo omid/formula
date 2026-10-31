@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- MSRV is now Rust 1.99
+- Upgraded dependencies, and replaced `rand` with `getrandom`
+- Invalid input in many functions returns an error instead of panicking, e.g. `EDATE`, `EOMONTH`, `RIGHT`, `MID`, `REPLACE`, `FINDB`, `SEARCHB`, `YEAR('2020')`, `REPT` with a huge count
+- `WEEKNUM` and `FILTERXML` return `Error::NotImplemented` instead of panicking
+- Text after a complete formula is an error, e.g. `=1+1` used to return `1`
+- Strings can contain the other quote character, e.g. `="it's"`
+- Results that are not finite numbers (e.g. `F.DIV(1, 0)`, `MOD(1, 0)`, `SQRT(-1)`, `LN(0)`) return `Expr::Null`
+- `F.EQ`, `F.NE` and the other comparisons agree with each other, and ignore floating point noise like Excel
+- `IF` only evaluates the selected branch, and returns `FALSE` when the false branch is missing
+- `IFERROR` catches `Expr::Null`, `IFNA` returns the value when it's not N/A
+- `WEEKDAY` uses Excel's numbering and supports the return type argument
+- Excel compatible `MOD`, `FIXED`, `TRIM`, `PROPER`, `TEXTJOIN`, `CHAR`, `UNICHAR`, `CODE`, `UNICODE`, `FIND` and `SEARCH`
+- Date and time functions accept the result of `NOW()`
+- `WEBSERVICE` returns an error on HTTP error responses, and on WASM
+- The WASM package returns valid JSON for arrays
+
 ## 0.1.0 (2022-09-20)
 
 ### Added

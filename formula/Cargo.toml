@@ -14,9 +14,9 @@ rust-version = "1.99"
 
 [dependencies]
 chrono = "0.4"
+getrandom = "0.4"
 pest = "2.7"
 pest_derive = "2.7"
-rand = "0.10"
 thiserror = "2.0"
 urlencoding = "2.1"
 #sxd-xpath = "0.4"

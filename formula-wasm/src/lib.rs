@@ -1,4 +1,5 @@
 use formula::{Expr, Formula};
+use std::fmt::Write;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -20,21 +21,54 @@ pub fn parse(str: &str) -> Result<JsValue, JsError> {
     Ok(value)
 }
 
+/// Serializes the value as JSON
 fn array_to_string(arr: Expr) -> String {
     match arr {
         Expr::Array(v) => {
-            let mut strings = Vec::with_capacity(v.len());
-            for i in v {
-                strings.push(array_to_string(i));
-            }
+            let strings = v.into_iter().map(array_to_string).collect::<Vec<_>>();
             format!("[{}]", strings.join(","))
         }
-        Expr::String(v) => format!("\"{v}\""),
+        Expr::String(v) => json_string(&v),
         Expr::Date(v) => format!("\"{v}\""),
         Expr::Datetime(v) => format!("\"{v}\""),
         Expr::Time(v) => format!("\"{v}\""),
+        // JSON has no NaN or infinity
+        Expr::Number(v) if !v.is_finite() => "null".to_string(),
         Expr::Number(v) => v.to_string(),
         Expr::Bool(v) => v.to_string(),
         Expr::Null => "null".to_string(),
+    }
+}
+
+fn json_string(v: &str) -> String {
+    let mut string = String::with_capacity(v.len() + 2);
+    string.push('"');
+    for c in v.chars() {
+        match c {
+            '"' => string.push_str("\\\""),
+            '\\' => string.push_str("\\\\"),
+            c if c < ' ' => {
+                let _ = write!(string, "\\u{:04x}", u32::from(c));
+            }
+            c => string.push(c),
+        }
+    }
+    string.push('"');
+    string
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_array_to_string() {
+        let array = Expr::Array(vec![
+            Expr::String("a\"b\\c\n".to_string()),
+            Expr::Number(1.5),
+            Expr::Number(f64::NAN),
+            Expr::Array(vec![Expr::Bool(true), Expr::Null]),
+        ]);
+        assert_eq!(array_to_string(array), r#"["a\"b\\c\u000a",1.5,null,[true,null]]"#);
     }
 }

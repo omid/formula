@@ -10,17 +10,35 @@ impl Formula<'_> {
 
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn parse_string(pair: Pair<Rule>) -> Result<Expr> {
-        let string = pair.into_inner().as_str().to_string();
-        let string = string
-            .replace("\\\'", "\'")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\"")
-            .replace("\\b", "\u{0008}")
-            .replace("\\f", "\u{000C}")
-            .replace("\\\n", "\n")
-            .replace("\\\r", "\r")
-            .replace("\\\t", "\t");
-        Ok(Expr::String(string))
+        Ok(Expr::String(Self::unescape(pair.into_inner().as_str())))
+    }
+
+    /// Decodes the escape sequences that the grammar accepts, in a single pass
+    fn unescape(escaped: &str) -> String {
+        let mut string = String::with_capacity(escaped.len());
+        let mut chars = escaped.chars();
+        while let Some(c) = chars.next() {
+            if c != '\\' {
+                string.push(c);
+                continue;
+            }
+            match chars.next() {
+                Some('b') => string.push('\u{0008}'),
+                Some('f') => string.push('\u{000C}'),
+                Some('n') => string.push('\n'),
+                Some('r') => string.push('\r'),
+                Some('t') => string.push('\t'),
+                Some('u') => {
+                    let code = chars.by_ref().take(4).collect::<String>();
+                    let c = u32::from_str_radix(&code, 16).ok().and_then(char::from_u32);
+                    string.push(c.unwrap_or(char::REPLACEMENT_CHARACTER));
+                }
+                // quotes and backslash
+                Some(c) => string.push(c),
+                None => {}
+            }
+        }
+        string
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
@@ -91,6 +109,18 @@ mod tests {
         let formula = Formula::new("='\\'TEST\\\"'").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("'TEST\"".to_string()));
+
+        let formula = Formula::new(r"='a\\b\nc\u0041'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("a\\b\ncA".to_string()));
+
+        let formula = Formula::new("=\"it's\"").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("it's".to_string()));
+
+        assert!(Formula::new("='it's'").is_err());
+        assert!(Formula::new("=F.ADD(1,2) garbage").is_err());
+        assert!(Formula::new("=1+1").is_err());
 
         let formula = Formula::new("={}").unwrap();
         let value = formula.parse().unwrap();
