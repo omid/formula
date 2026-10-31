@@ -16,6 +16,7 @@ pub fn parse(str: &str) -> Result<JsValue, JsError> {
         Expr::Bool(v) => v.into(),
         Expr::Array(v) => array_to_string(Expr::Array(v)).into(),
         Expr::Null => JsValue::null(),
+        Expr::Error(v) => v.to_string().into(),
     };
 
     Ok(value)
@@ -37,6 +38,7 @@ fn array_to_string(arr: Expr) -> String {
         Expr::Number(v) => v.to_string(),
         Expr::Bool(v) => v.to_string(),
         Expr::Null => "null".to_string(),
+        Expr::Error(v) => json_string(&v.to_string()),
     }
 }
 
@@ -60,6 +62,7 @@ fn json_string(v: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use formula::ExprError;
 
     #[test]
     fn test_array_to_string() {
@@ -67,8 +70,15 @@ mod tests {
             Expr::String("a\"b\\c\n".to_string()),
             Expr::Number(1.5),
             Expr::Number(f64::NAN),
-            Expr::Array(vec![Expr::Bool(true), Expr::Null]),
+            Expr::Array(vec![
+                Expr::Bool(true),
+                Expr::Null,
+                Expr::Error(ExprError::DivisionByZero),
+            ]),
         ]);
-        assert_eq!(array_to_string(array), r#"["a\"b\\c\u000a",1.5,null,[true,null]]"#);
+        assert_eq!(
+            array_to_string(array),
+            r##"["a\"b\\c\u000a",1.5,null,[true,null,"#DIV/0!"]]"##
+        );
     }
 }

@@ -441,6 +441,7 @@ byrow = { ^"BYROW" ~ OP ~ F ~ CP }
 if_ = { ^"IF" ~ OP ~ F ~ CF ~ CF? ~ CP }
 iferror = { ^"IFERROR" ~ OP ~ F ~ CF ~ CP }
 ifna = { ^"IFNA" ~ OP ~ F ~ CF ~ CP }
+na = { ^"NA" ~ OP ~ CP }
 ifs = { ^"IFS" ~ OP ~ F ~ CF ~ CF* ~ CP }
 lambda = { ^"LAMBDA" ~ OP ~ F ~ CP }
 let_ = { ^"LET" ~ OP ~ F ~ CP }
@@ -459,6 +460,7 @@ logical_functions = _{
     | if_
     | iferror
     | ifna
+    | na
     | ifs
     | lambda
     | let_

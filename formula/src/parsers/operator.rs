@@ -1,28 +1,36 @@
-use super::helper::parser_error;
-use crate::{Expr, Formula, Result, Rule};
+use super::{
+    helper::{number, parser_error},
+    Result,
+};
+use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 use std::cmp::Ordering;
 
 impl Formula<'_> {
     pub(crate) fn parse_add(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| operand1 + operand2)
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 + operand2))
     }
 
     pub(crate) fn parse_sub(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| operand1 - operand2)
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 - operand2))
     }
 
     pub(crate) fn parse_mul(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| operand1 * operand2)
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 * operand2))
     }
 
-    /// Dividing by zero gives an infinite or NaN number, which becomes `Expr::Null`
     pub(crate) fn parse_div(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| operand1 / operand2)
+        Self::parse_binary_number(pair, |operand1, operand2| {
+            if operand2 == 0.0 {
+                Expr::Error(ExprError::DivisionByZero)
+            } else {
+                number(operand1 / operand2)
+            }
+        })
     }
 
     pub(crate) fn parse_pow(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, f64::powf)
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1.powf(operand2)))
     }
 
     pub(crate) fn parse_eq(pair: Pair<Rule>) -> Result<Expr> {
@@ -84,7 +92,7 @@ impl Formula<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -107,11 +115,11 @@ mod tests {
 
         let formula = Formula::new("=F.DIV(10,0)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=F.DIV(0,0)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=F.DIV(-10,4)").unwrap();
         let value = formula.parse().unwrap();
@@ -189,6 +197,11 @@ mod tests {
         assert_eq!(value, Expr::Bool(true));
 
         let formula = Formula::new("=F.ADD(F.DIV(1,0),1)").unwrap();
-        assert!(formula.parse().is_err());
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        let formula = Formula::new("=F.EQ(NA(),1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::NotAvailable));
     }
 }

@@ -1,4 +1,5 @@
-use crate::{Expr, Formula, Result, Rule};
+use super::{Halt, Result};
+use crate::{Expr, Formula, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -68,7 +69,12 @@ impl Formula<'_> {
                     row = Vec::new();
                 }
                 _ => {
-                    row.push(Self::parse_pair(ipair)?);
+                    // An error element doesn't make the whole array an error
+                    let value = match Self::parse_pair(ipair) {
+                        Err(Halt::Value(error)) => Expr::Error(error),
+                        value => value?,
+                    };
+                    row.push(value);
                 }
             }
         }
@@ -85,7 +91,7 @@ impl Formula<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -121,6 +127,13 @@ mod tests {
         assert!(Formula::new("='it's'").is_err());
         assert!(Formula::new("=F.ADD(1,2) garbage").is_err());
         assert!(Formula::new("=1+1").is_err());
+
+        let formula = Formula::new("={1, F.DIV(1, 0)}").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(
+            value,
+            Expr::Array(vec![Expr::Number(1.0), Expr::Error(ExprError::DivisionByZero)])
+        );
 
         let formula = Formula::new("={}").unwrap();
         let value = formula.parse().unwrap();

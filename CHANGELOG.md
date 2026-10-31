@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- `NA()` function
+
 ### Changed
 
 - MSRV is now Rust 1.99
@@ -14,10 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WEEKNUM` and `FILTERXML` return `Error::NotImplemented` instead of panicking
 - Text after a complete formula is an error, e.g. `=1+1` used to return `1`
 - Strings can contain the other quote character, e.g. `="it's"`
-- Results that are not finite numbers (e.g. `F.DIV(1, 0)`, `MOD(1, 0)`, `SQRT(-1)`, `LN(0)`) return `Expr::Null`
+- **Breaking:** spreadsheet errors are `Expr::Error(ExprError)` values (`#DIV/0!`, `#NUM!`, `#N/A`) instead of `Expr::Null`.
+  Like Excel, they pass through the functions that use them, until `IFERROR`, `IFNA` or the result
+- Division by zero is `#DIV/0!`, and results that are not finite numbers (e.g. `SQRT(-1)`, `LN(0)`) are `#NUM!`
 - `F.EQ`, `F.NE` and the other comparisons agree with each other, and ignore floating point noise like Excel
 - `IF` only evaluates the selected branch, and returns `FALSE` when the false branch is missing
-- `IFERROR` catches `Expr::Null`, `IFNA` returns the value when it's not N/A
+- `IFERROR` catches spreadsheet errors, `IFNA` only catches `#N/A` and returns the value otherwise
 - `WEEKDAY` uses Excel's numbering and supports the return type argument
 - Excel compatible `MOD`, `FIXED`, `TRIM`, `PROPER`, `TEXTJOIN`, `CHAR`, `UNICHAR`, `CODE`, `UNICODE`, `FIND` and `SEARCH`
 - Date and time functions accept the result of `NOW()`

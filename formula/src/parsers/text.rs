@@ -1,5 +1,5 @@
-use super::helper::parser_error;
-use crate::{Expr, Formula, Result, Rule};
+use super::{helper::parser_error, Result};
+use crate::{Expr, Formula, Rule};
 use pest::iterators::Pair;
 
 /// Excel's maximum text length

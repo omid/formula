@@ -1,5 +1,5 @@
-use super::helper::parser_error;
-use crate::{error::Error, Expr, Formula, Result, Rule};
+use super::{helper::parser_error, Result};
+use crate::{error::Error, Expr, Formula, Rule};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
@@ -29,7 +29,7 @@ impl Formula<'_> {
         //     _ => return Err(Error::Parser(rule_name).into()),
         // };
         // Ok(Expr::String(body))
-        Err(Error::NotImplemented(format!("{:?}", pair.as_rule())))
+        Err(Error::NotImplemented(format!("{:?}", pair.as_rule())).into())
     }
 
     pub(crate) fn parse_webservice(pair: Pair<Rule>) -> Result<Expr> {
@@ -53,7 +53,7 @@ impl Formula<'_> {
 
     #[cfg(target_arch = "wasm32")]
     fn web_request(_url: &str, rule: Rule) -> Result<String> {
-        Err(Error::NotImplemented(format!("{rule:?}")))
+        Err(Error::NotImplemented(format!("{rule:?}")).into())
     }
 }
 

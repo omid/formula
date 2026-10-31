@@ -1,5 +1,8 @@
-use super::helper::{number, parser_error};
-use crate::{Expr, Formula, Result, Rule};
+use super::{
+    helper::{number, parser_error},
+    Result,
+};
+use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 use std::f64::consts::PI;
 
@@ -45,7 +48,7 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_atan2(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, f64::atan2)
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1.atan2(operand2)))
     }
 
     pub(crate) fn parse_atanh(pair: Pair<Rule>) -> Result<Expr> {
@@ -68,12 +71,16 @@ impl Formula<'_> {
     /// Like Excel, the result has the sign of the divisor
     pub(crate) fn parse_mod(pair: Pair<Rule>) -> Result<Expr> {
         Self::parse_binary_number(pair, |operand1, operand2| {
-            operand1 - operand2 * (operand1 / operand2).floor()
+            if operand2 == 0.0 {
+                Expr::Error(ExprError::DivisionByZero)
+            } else {
+                number(operand1 - operand2 * (operand1 / operand2).floor())
+            }
         })
     }
 
     pub(crate) fn parse_log(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, f64::log)
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1.log(operand2)))
     }
 
     pub(crate) fn parse_log10(pair: Pair<Rule>) -> Result<Expr> {
@@ -121,7 +128,7 @@ impl Formula<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -144,15 +151,15 @@ mod tests {
 
         let formula = Formula::new("=MOD(3, 0)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=SQRT(-1)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=LN(0)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=SUM(1, 'a')").unwrap();
         assert!(formula.parse().is_err());
@@ -163,11 +170,11 @@ mod tests {
 
         let formula = Formula::new("=F.POW(10, 400)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=SUM(1e308, 1e308)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=MOD(5.5, 2)").unwrap();
         let value = formula.parse().unwrap();
@@ -183,7 +190,7 @@ mod tests {
 
         let formula = Formula::new("=SQRTPI(-1)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=LOG(8, 2)").unwrap();
         let value = formula.parse().unwrap();

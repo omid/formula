@@ -1,5 +1,5 @@
-use super::helper::parser_error;
-use crate::{error::Error, Expr, Formula, Result, Rule};
+use super::{helper::parser_error, Halt, Result};
+use crate::{error::Error, Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -25,7 +25,7 @@ impl Formula<'_> {
         }
     }
 
-    /// Falls back on invalid formulas and on spreadsheet errors (`Expr::Null`).
+    /// Falls back on spreadsheet errors and on invalid formulas.
     /// Functions that are not implemented yet still return their error.
     pub(crate) fn parse_iferror(pair: Pair<Rule>) -> Result<Expr> {
         let rule = pair.as_rule();
@@ -34,20 +34,27 @@ impl Formula<'_> {
         let error_value = args.next().ok_or_else(|| parser_error(rule))?;
 
         match Self::parse_pair(value) {
-            Ok(Expr::Null) | Err(Error::Parser(_)) => Self::parse_pair(error_value),
+            Err(Halt::Value(_) | Halt::Error(Error::Parser(_))) => Self::parse_pair(error_value),
             value => value,
         }
     }
 
+    /// Falls back on `#N/A` only
     pub(crate) fn parse_ifna(pair: Pair<Rule>) -> Result<Expr> {
         let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let value = Self::get_formula(&mut args, rule)?;
+        let value = args.next().ok_or_else(|| parser_error(rule))?;
+        let na_value = args.next().ok_or_else(|| parser_error(rule))?;
 
-        match value {
-            Expr::Null => Self::get_formula(&mut args, rule),
-            value => Ok(value),
+        match Self::parse_pair(value) {
+            Err(Halt::Value(ExprError::NotAvailable)) => Self::parse_pair(na_value),
+            value => value,
         }
+    }
+
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    pub(crate) fn parse_na(_pair: Pair<Rule>) -> Result<Expr> {
+        Ok(Expr::Error(ExprError::NotAvailable))
     }
 
     /// Only the selected branch is evaluated
@@ -81,7 +88,7 @@ impl Formula<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -114,9 +121,24 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Bool(true));
 
-        let formula = Formula::new("=IFNA(F.DIV(1, 0), 'not found')").unwrap();
+        let formula = Formula::new("=NA()").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::NotAvailable));
+
+        let formula = Formula::new("=IFNA(NA(), 'not found')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("not found".to_string()));
+
+        let formula = Formula::new("=IFNA(F.ADD(NA(), 1), 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("not found".to_string()));
+
+        let formula = Formula::new("=IFNA(F.DIV(1, 0), 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        let formula = Formula::new("=IFNA(F.ADD('a', 1), 'not found')").unwrap();
+        assert!(formula.parse().is_err());
 
         let formula = Formula::new("=IFNA(5, 'not found')").unwrap();
         let value = formula.parse().unwrap();
@@ -129,6 +151,18 @@ mod tests {
         let formula = Formula::new("=IFERROR(F.DIV(1, 0), 'err')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=IFERROR(SQRT(F.SUB(0, F.DIV(1, 0))), 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=IFERROR(NA(), 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=NOT(F.DIV(1, 0))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=IFERROR(5, 'err')").unwrap();
         let value = formula.parse().unwrap();
@@ -161,7 +195,7 @@ mod tests {
 
         let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.DIV(1, 0))").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.ADD('a', 1))").unwrap();
         assert!(formula.parse().is_err());

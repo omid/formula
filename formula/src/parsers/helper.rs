@@ -1,17 +1,18 @@
-use crate::{error::Error, Expr, Formula, Result, Rule};
+use super::{Halt, Result};
+use crate::{error::Error, Expr, ExprError, Formula, Rule};
 use pest::iterators::{Pair, Pairs};
 
 /// Builds the error for an invalid call of `rule`, only formatting the rule name when an error actually happens
-pub(crate) fn parser_error(rule: Rule) -> Error {
-    Error::Parser(format!("{rule:?}"))
+pub(crate) fn parser_error(rule: Rule) -> Halt {
+    Halt::Error(Error::Parser(format!("{rule:?}")))
 }
 
-/// Spreadsheet errors (`#NUM!`, `#DIV/0!`, ...) are represented as `Expr::Null`
+/// Infinite and NaN results are `#NUM!` errors
 pub(crate) fn number(value: f64) -> Expr {
     if value.is_finite() {
         Expr::Number(value)
     } else {
-        Expr::Null
+        Expr::Error(ExprError::Number)
     }
 }
 
@@ -36,14 +37,14 @@ impl Formula<'_> {
     }
 
     /// Evaluates a function that takes two numbers
-    pub(crate) fn parse_binary_number(pair: Pair<Rule>, f: impl FnOnce(f64, f64) -> f64) -> Result<Expr> {
+    pub(crate) fn parse_binary_number(pair: Pair<Rule>, f: impl FnOnce(f64, f64) -> Expr) -> Result<Expr> {
         let rule = pair.as_rule();
         let mut args = pair.into_inner();
         let operand1 = Self::get_formula(&mut args, rule)?;
         let operand2 = Self::get_formula(&mut args, rule)?;
 
         match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => Ok(number(f(operand1, operand2))),
+            (Expr::Number(operand1), Expr::Number(operand2)) => Ok(f(operand1, operand2)),
             _ => Err(parser_error(rule)),
         }
     }

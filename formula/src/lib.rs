@@ -16,7 +16,7 @@ So far we have the following features:
 - 18 date time functions
 - 26 text functions
 - 26 math functions
-- 7 logical functions
+- 8 logical functions
 - 2 web functions
 - plus all arithmetic and comparison operators
 
@@ -77,6 +77,7 @@ pub mod error;
 mod parsers;
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use parsers::Halt;
 use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
 
@@ -91,9 +92,6 @@ pub struct Formula<'a> {
 }
 
 /// `Expr` is the result of parsing a formula.
-///
-/// There is a difference between Excel and this library here.
-/// We don't have a `#N/A`, `#VALUE!`, `#DIV/0!`, `#NUM!`, `#NULL!` error types, instead it will return `Expr::Null`.
 #[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Expr {
     Date(NaiveDate),
@@ -103,7 +101,42 @@ pub enum Expr {
     String(String),
     Bool(bool),
     Array(Vec<Expr>),
+    /// An empty value
     Null,
+    /// A spreadsheet error like `#DIV/0!`.
+    /// Like Excel, it passes through the functions that use it, until `IFERROR`, `IFNA` or the result.
+    Error(ExprError),
+}
+
+/// A spreadsheet error value, it displays like in Excel, e.g. `#DIV/0!`
+///
+/// ```rust
+/// use formula::{Expr, ExprError, Formula};
+///
+/// let value = Formula::new("=F.DIV(1, 0)").unwrap().parse().unwrap();
+/// assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+/// assert_eq!(ExprError::DivisionByZero.to_string(), "#DIV/0!");
+/// ```
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd)]
+#[non_exhaustive]
+pub enum ExprError {
+    /// `#DIV/0!`
+    DivisionByZero,
+    /// `#NUM!`, e.g. the square root of a negative number or a result that is too large
+    Number,
+    /// `#N/A`
+    NotAvailable,
+}
+
+impl std::fmt::Display for ExprError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let error = match self {
+            Self::DivisionByZero => "#DIV/0!",
+            Self::Number => "#NUM!",
+            Self::NotAvailable => "#N/A",
+        };
+        f.write_str(error)
+    }
 }
 
 pub type Result<T> = std::result::Result<T, error::Error>;
@@ -138,12 +171,17 @@ impl<'a> Formula<'a> {
     /// # Errors
     ///
     /// Will return `Err` if the formula is not valid or the functions are not implemented.
+    /// Spreadsheet errors like `#DIV/0!` are a valid result, `Ok(Expr::Error(_))`.
     pub fn parse(self) -> Result<Expr> {
-        Self::parse_pair(self.pairs)
+        match Self::parse_pair(self.pairs) {
+            Ok(value) => Ok(value),
+            Err(Halt::Value(error)) => Ok(Expr::Error(error)),
+            Err(Halt::Error(error)) => Err(error),
+        }
     }
 
     #[allow(clippy::too_many_lines)]
-    fn parse_pair(pair: Pair<Rule>) -> Result<Expr> {
+    fn parse_pair(pair: Pair<Rule>) -> parsers::Result<Expr> {
         #[allow(clippy::match_same_arms)]
         let res = match pair.as_rule() {
             // Operators
@@ -187,7 +225,7 @@ impl<'a> Formula<'a> {
             | Rule::workdaysintl
             | Rule::yearfrac
             | Rule::days360
-            | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
+            | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
 
             // Text functions
             Rule::left => Self::parse_left(pair)?,
@@ -232,7 +270,7 @@ impl<'a> Formula<'a> {
             | Rule::textsplit
             | Rule::value
             | Rule::valuetotext
-            | Rule::bahttext => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
+            | Rule::bahttext => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
             // Engineering functions
             // Financial functions
             // Logical functions
@@ -243,6 +281,7 @@ impl<'a> Formula<'a> {
             Rule::if_ => Self::parse_if(pair)?,
             Rule::ifna => Self::parse_ifna(pair)?,
             Rule::iferror => Self::parse_iferror(pair)?,
+            Rule::na => Self::parse_na(pair)?,
             // TODO remaining text functions
             Rule::let_
             | Rule::bycol
@@ -253,7 +292,7 @@ impl<'a> Formula<'a> {
             | Rule::map
             | Rule::lambda
             | Rule::switch
-            | Rule::ifs => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
+            | Rule::ifs => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
             // Math functions
             Rule::abs => Self::parse_abs(pair)?,
             Rule::acos => Self::parse_acos(pair)?,
@@ -337,7 +376,7 @@ impl<'a> Formula<'a> {
             | Rule::sumx2my2
             | Rule::sumx2py2
             | Rule::sumxmy2
-            | Rule::trunc => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule()))),
+            | Rule::trunc => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
 
             // Statistical functions
             // Web functions
@@ -377,7 +416,11 @@ impl<'a> Formula<'a> {
             }
         };
 
-        Ok(res)
+        // Spreadsheet errors stop the evaluation until a function handles them
+        match res {
+            Expr::Error(error) => Err(Halt::Value(error)),
+            res => Ok(res),
+        }
     }
 }
 

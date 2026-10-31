@@ -1,5 +1,5 @@
-use super::helper::parser_error;
-use crate::{error::Error, Expr, Formula, Result, Rule};
+use super::{helper::parser_error, Result};
+use crate::{error::Error, Expr, Formula, Rule};
 use chrono::{Datelike, Months, NaiveDate, NaiveTime, Timelike, Utc, Weekday};
 use pest::iterators::Pair;
 
@@ -61,7 +61,7 @@ impl Formula<'_> {
         //     _ => return Err(Error::Parser(rule_name).into()),
         // };
         // Ok(Expr::Number(week as i32 as f64))
-        Err(Error::NotImplemented(format!("{:?}", pair.as_rule())))
+        Err(Error::NotImplemented(format!("{:?}", pair.as_rule())).into())
     }
 
     pub(crate) fn parse_isoweeknum(pair: Pair<Rule>) -> Result<Expr> {
