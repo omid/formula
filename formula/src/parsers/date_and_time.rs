@@ -486,4 +486,52 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(f64::from(Utc::now().month())));
     }
+
+    #[test]
+    fn test_parse_weekday_return_types() {
+        // 2020-01-01 is a Wednesday
+        for (return_type, weekday) in [
+            (1, 4),
+            (2, 3),
+            (3, 2),
+            (11, 3),
+            (12, 2),
+            (13, 1),
+            (14, 7),
+            (15, 6),
+            (16, 5),
+            (17, 4),
+        ] {
+            let formula = format!("=WEEKDAY(DATE(2020,1,1), {return_type})");
+            let value = Formula::new(&formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::Number(f64::from(weekday)), "{return_type}");
+        }
+    }
+
+    #[test]
+    fn test_parse_time_parts() {
+        let formula = Formula::new("=HOUR(TIME(13, 4, 5))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(13.0));
+
+        let formula = Formula::new("=MINUTE(TIME(13, 4, 5))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(4.0));
+
+        let formula = Formula::new("=SECOND(TIME(13, 4, 5))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(5.0));
+
+        let formula = Formula::new("=MINUTE(NOW())").unwrap();
+        let value = formula.parse().unwrap();
+        assert!(matches!(value, Expr::Number(minute) if (0.0..60.0).contains(&minute)));
+
+        let formula = Formula::new("=HOUR(1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=SECOND(DATE(2020,1,1))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Value));
+    }
 }

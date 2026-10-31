@@ -632,7 +632,15 @@ mod tests {
         assert_eq!(Expr::from(ExprError::Reference), Expr::Error(ExprError::Reference));
         assert_eq!(Expr::from(Some(1)), Expr::Number(1.0));
         assert_eq!(Expr::from(None::<f64>), Expr::Null);
+    }
+
+    #[test]
+    fn test_expr_error_display() {
+        assert_eq!(ExprError::DivisionByZero.to_string(), "#DIV/0!");
+        assert_eq!(ExprError::Value.to_string(), "#VALUE!");
         assert_eq!(ExprError::Reference.to_string(), "#REF!");
+        assert_eq!(ExprError::Number.to_string(), "#NUM!");
+        assert_eq!(ExprError::NotAvailable.to_string(), "#N/A");
     }
 
     #[test]
@@ -669,6 +677,7 @@ mod tests {
             "=WORKDAY(DATE(2020,1,1), 5)",
             "=WORKDAY.INTL(DATE(2020,1,1), 5)",
             "=FILTERXML('<a/>', '/a')",
+            "=SUBSTITUTE('a', 'a', 'b')",
         ] {
             assert!(matches!(Formula::new(formula), Err(error::Error::NotImplemented(_))));
         }

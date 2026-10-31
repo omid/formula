@@ -712,4 +712,37 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String(String::new()));
     }
+
+    #[test]
+    fn test_parse_invalid_lengths() {
+        for formula in [
+            "=LEFTB('abc', -1)",
+            "=RIGHT('abc', -1)",
+            "=RIGHTB('abc', -1)",
+            "=REPLACEB('abc', 0, 1, 'x')",
+            "=REPLACEB('abc', 1, -1, 'x')",
+            "=MIDB('abc', 1, -1)",
+            "=FINDB('a', 'abc', 0)",
+            "=FINDB('a', 'abc', 4)",
+        ] {
+            let value = Formula::new(formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::Error(crate::ExprError::Value), "{formula}");
+        }
+
+        let formula = Formula::new("=RIGHTB('abc', 5)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("abc".to_string()));
+
+        let formula = Formula::new("=FINDB('c', 'abc', 3)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(3.0));
+    }
+
+    #[test]
+    fn test_parse_fixed_huge_numbers() {
+        // rounding overflows, so the number is used as it is
+        let formula = Formula::new("=FIXED(1e300, 10, TRUE)").unwrap();
+        let value = formula.parse().unwrap();
+        assert!(matches!(value, Expr::String(text) if text.len() == 301 + 11 && text.ends_with(".0000000000")));
+    }
 }

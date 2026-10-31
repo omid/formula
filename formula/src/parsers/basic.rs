@@ -178,4 +178,15 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(1.0));
     }
+
+    #[test]
+    fn test_parse_escapes() {
+        let formula = Formula::new(r"='\b\f\r\n\t\'\\'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\u{8}\u{c}\r\n\t'\\".to_string()));
+
+        let formula = Formula::new(r#"="\"\u00e9""#).unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\"é".to_string()));
+    }
 }
