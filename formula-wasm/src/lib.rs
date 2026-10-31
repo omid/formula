@@ -114,3 +114,88 @@ mod tests {
         );
     }
 }
+
+/// Run in Node with wasm-bindgen's test runner, see `make test_wasm`
+#[cfg(all(test, target_arch = "wasm32"))]
+mod wasm_tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    /// Rows of values from JSON, which has no `undefined`
+    fn rows(json: &str) -> Option<Array> {
+        Some(js_sys::JSON::parse(json).unwrap().unchecked_into())
+    }
+
+    fn error_message(error: JsError) -> String {
+        JsValue::from(error).unchecked_into::<js_sys::Error>().message().into()
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_without_rows() {
+        assert_eq!(parse("=UPPER('hi')", None).unwrap(), "HI");
+        assert_eq!(parse("=F.ADD(1, 2)", None).unwrap(), 3.0);
+        assert_eq!(parse("=TRUE", None).unwrap(), true);
+        assert_eq!(parse("=A1", None).unwrap(), JsValue::NULL);
+        assert_eq!(parse("=F.DIV(1, 0)", None).unwrap(), "#DIV/0!");
+        assert_eq!(parse("=DATE(2020, 1, 2)", None).unwrap(), "2020-01-02");
+        assert_eq!(parse("=TIME(1, 2, 3)", None).unwrap(), "01:02:03");
+        assert_eq!(
+            parse("={1, 'a'; TRUE, NA()}", None).unwrap(),
+            r##"[[1,"a"],[true,"#N/A"]]"##
+        );
+
+        // the clock and random numbers work in WASM
+        assert!(parse("=YEAR(NOW())", None).unwrap().as_f64().unwrap() >= 2026.0);
+        let random = parse("=RAND()", None).unwrap().as_f64().unwrap();
+        assert!((0.0..1.0).contains(&random));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_with_rows() {
+        assert_eq!(parse("=SUM(A1:B2)", rows("[[1, 2], [3, null]]")).unwrap(), 6.0);
+        assert_eq!(parse("=A1", rows(r#"[["x"]]"#)).unwrap(), "x");
+        assert_eq!(parse("=AND(A1:B1)", rows("[[true, 1]]")).unwrap(), true);
+        assert_eq!(parse("=A1", rows("[[]]")).unwrap(), JsValue::NULL);
+        assert_eq!(parse("=A1", rows("[]")).unwrap(), JsValue::NULL);
+        assert_eq!(
+            parse(
+                r#"=TEXTJOIN(", ", TRUE, A:A)"#,
+                rows(r#"[["apples"], [null], ["pears"]]"#)
+            )
+            .unwrap(),
+            "apples, pears"
+        );
+
+        // ranges are JSON
+        assert_eq!(parse("=A1:B1", rows(r#"[[1, "a"]]"#)).unwrap(), r#"[1,"a"]"#);
+        assert_eq!(parse("=A1:A2", rows("[[1], [null]]")).unwrap(), "[[1],[null]]");
+
+        // other values, and sheets
+        assert_eq!(parse("=A1", rows("[[{}]]")).unwrap(), "#VALUE!");
+        assert_eq!(parse("=A1", rows("[[[1]]]")).unwrap(), "#VALUE!");
+        assert_eq!(parse("=Sheet2!A1", rows("[[1]]")).unwrap(), "#REF!");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_undefined_cells() {
+        let row = Array::new();
+        row.push(&JsValue::from(1));
+        row.push(&JsValue::UNDEFINED);
+        let rows = Array::of1(&row);
+
+        assert_eq!(parse("=B1", Some(rows.clone())).unwrap(), JsValue::NULL);
+        assert_eq!(parse("=SUM(A1:B1)", Some(rows)).unwrap(), 1.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_errors() {
+        let error = parse("=A1", rows("[1]")).unwrap_err();
+        assert_eq!(error_message(error), "Each row must be an array of values");
+
+        let error = parse("=XFE1", None).unwrap_err();
+        assert!(error_message(error).contains("XFE1"));
+
+        let error = parse("=WEEKNUM(1)", None).unwrap_err();
+        assert!(error_message(error).contains("weeknum"));
+    }
+}

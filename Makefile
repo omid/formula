@@ -25,6 +25,10 @@ check_strictly:
 check_very_strictly:
 	@cargo +nightly clippy --fix --allow-dirty --allow-staged --all-features --all-targets -- -W clippy::all -W clippy::pedantic -W clippy::cargo -A clippy::cast_sign_loss -A clippy::cast_possible_truncation -A clippy::cast_precision_loss
 
+# Runs formula-wasm's tests in Node, with wasm-bindgen-cli of the same version as the wasm-bindgen crate
+test_wasm:
+	@CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner cargo test -p formula-wasm --target wasm32-unknown-unknown
+
 wasm_example:
 	@cd formula-wasm; \
 		npm install; \
