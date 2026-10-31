@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.2.0 (2026-10-31)
 
 ### Added
 
@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Invalid input in many functions returns a spreadsheet error instead of panicking, e.g. `EDATE`, `EOMONTH`, `RIGHT`, `MID`, `REPLACE`, `FINDB`, `SEARCHB`, `YEAR('2020')`, `REPT` with a huge count
 - `WEEKNUM` and `FILTERXML` are rejected as not implemented instead of panicking
 - Text after a complete formula is an error, e.g. `=1+1` used to return `1`
-- Strings can contain the other quote character, e.g. `="it's"`
+- Strings can contain the other quote character, e.g. `="it's"`, and escapes like `\n` or `é` are decoded correctly
+- `FLOOR.PRECISE`, `SWITCH`, `WORKDAY` and `WORKDAY.INTL` are recognized again, and rejected as not implemented yet
 - **Breaking:** spreadsheet errors are `Expr::Error(ExprError)` values (`#DIV/0!`, `#NUM!`, `#N/A`) instead of `Expr::Null`.
   Like Excel, they pass through the functions that use them, until `IFERROR`, `IFNA` or the result
 - **Breaking:** like Excel, arguments of the wrong type and invalid values are `#VALUE!` instead of `Error::Parser`,
