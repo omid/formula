@@ -6,7 +6,7 @@ use pest::iterators::Pair;
 /// Excel's limit for each argument of `TIME`
 const MAX_TIME_PART: f64 = 32_767.0;
 
-impl Evaluator {
+impl Evaluator<'_> {
     #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_now(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Datetime(Utc::now()))

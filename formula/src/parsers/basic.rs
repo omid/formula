@@ -2,7 +2,7 @@ use super::{Evaluator, Result};
 use crate::{Expr, Rule};
 use pest::iterators::Pair;
 
-impl Evaluator {
+impl Evaluator<'_> {
     #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_num(&self, pair: Pair<Rule>) -> Result<Expr> {
         let number = pair.as_str().trim().parse().unwrap();

@@ -2,7 +2,7 @@ use super::{Evaluator, Result};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
-impl Evaluator {
+impl Evaluator<'_> {
     pub(crate) fn parse_and(&self, pair: Pair<Rule>) -> Result<Expr> {
         self.fold_bools(pair, |bool, b| bool && b)
     }

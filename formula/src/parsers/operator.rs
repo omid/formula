@@ -3,7 +3,7 @@ use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 use std::cmp::Ordering;
 
-impl Evaluator {
+impl Evaluator<'_> {
     pub(crate) fn parse_add(&self, pair: Pair<Rule>) -> Result<Expr> {
         self.parse_binary_number(pair, |operand1, operand2| number(operand1 + operand2))
     }

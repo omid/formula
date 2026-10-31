@@ -7,7 +7,7 @@ const MAX_TEXT_LEN: usize = 32_767;
 /// Excel's maximum number of decimals in `FIXED`
 const MAX_FIXED_DECIMALS: f64 = 127.0;
 
-impl Evaluator {
+impl Evaluator<'_> {
     pub(crate) fn parse_left(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
         let text = self.get_formula(&mut args)?;

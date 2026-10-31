@@ -3,7 +3,7 @@ use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
-impl Evaluator {
+impl Evaluator<'_> {
     pub(crate) fn parse_encodeurl(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 

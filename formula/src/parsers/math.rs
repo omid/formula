@@ -3,7 +3,7 @@ use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 use std::f64::consts::PI;
 
-impl Evaluator {
+impl Evaluator<'_> {
     pub(crate) fn parse_abs(&self, pair: Pair<Rule>) -> Result<Expr> {
         self.parse_unary_number(pair, f64::abs)
     }

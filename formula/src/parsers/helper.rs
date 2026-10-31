@@ -11,7 +11,7 @@ pub(crate) fn number(value: f64) -> Expr {
     }
 }
 
-impl Evaluator {
+impl Evaluator<'_> {
     pub(crate) fn get_formula(&self, args: &mut Pairs<Rule>) -> Result<Expr> {
         args.next().map_or(Err(ExprError::Value), |pair| self.parse_pair(pair))
     }
