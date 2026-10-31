@@ -80,8 +80,8 @@ minute = { ^"MINUTE" ~ OP ~ F ~ CP }
 second = { ^"SECOND" ~ OP ~ F ~ CP }
 networkdays = { ^"NETWORKDAYS" ~ OP ~ F ~ CF ~ CF? ~ CP }
 networkdaysintl = { (^"NETWORKDAYSINTL" | ^"NETWORKDAYS.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
-workdays = { ^"WORKDAY" ~ OP ~ F ~ CF ~ CF? ~ CP }
-workdaysintl = { (^"WORKDAYINTL" | ^"WORKDAY.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
+workday = { ^"WORKDAY" ~ OP ~ F ~ CF ~ CF? ~ CP }
+workdayintl = { (^"WORKDAYINTL" | ^"WORKDAY.INTL") ~ OP ~ F ~ CF ~ CF? ~ CF? ~ CP }
 weekday = { ^"WEEKDAY" ~ OP ~ F ~ CF? ~ CP }
 weeknum = { ^"WEEKNUM" ~ OP ~ F ~ CF? ~ CP }
 isoweeknum = { ^"ISOWEEKNUM" ~ OP ~ F ~ CP }
@@ -106,8 +106,8 @@ datetime_functions = _{
     | second
     | networkdays
     | networkdaysintl
-    | workdays
-    | workdaysintl
+    | workday
+    | workdayintl
     | weekday
     | weeknum
     | isoweeknum

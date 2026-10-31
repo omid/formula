@@ -255,8 +255,8 @@ impl<'a> Formula<'a> {
             // TODO remaining date and time functions
             Rule::networkdays
             | Rule::networkdaysintl
-            | Rule::workdays
-            | Rule::workdaysintl
+            | Rule::workday
+            | Rule::workdayintl
             | Rule::yearfrac
             | Rule::days360
             | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
