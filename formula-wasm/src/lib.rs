@@ -1,11 +1,18 @@
-use formula::{Expr, Formula};
+use formula::{Expr, ExprError, Formula};
+use js_sys::Array;
 use std::fmt::Write;
 use wasm_bindgen::prelude::*;
 
+/// Evaluates a formula, its references read the optional `rows`,
+/// e.g. `parse('=SUM(A1:B2)', [[1, 2], [3, null]])` is 6
 #[wasm_bindgen]
-pub fn parse(str: &str) -> Result<JsValue, JsError> {
+pub fn parse(str: &str, rows: Option<Array>) -> Result<JsValue, JsError> {
     let formula = Formula::new(str).map_err(|e| JsError::new(&e.to_string()))?;
-    let value = formula.parse().map_err(|e| JsError::new(&e.to_string()))?;
+    let rows = rows
+        .map(|rows| rows.iter().map(|row| js_row(&row)).collect::<Result<Vec<_>, _>>())
+        .transpose()?
+        .unwrap_or_default();
+    let value = formula.parse_with(&rows).map_err(|e| JsError::new(&e.to_string()))?;
 
     let value = match value {
         Expr::Date(v) => v.to_string().into(),
@@ -20,6 +27,31 @@ pub fn parse(str: &str) -> Result<JsValue, JsError> {
     };
 
     Ok(value)
+}
+
+/// A row of values: numbers, texts, booleans, and `null` or `undefined` for empty cells.
+/// Other values are `#VALUE!`.
+fn js_row(row: &JsValue) -> Result<Vec<Expr>, JsError> {
+    let row = row
+        .dyn_ref::<Array>()
+        .ok_or_else(|| JsError::new("Each row must be an array of values"))?;
+
+    Ok(row
+        .iter()
+        .map(|value| {
+            if let Some(number) = value.as_f64() {
+                Expr::Number(number)
+            } else if let Some(text) = value.as_string() {
+                Expr::String(text)
+            } else if let Some(bool) = value.as_bool() {
+                Expr::Bool(bool)
+            } else if value.is_null() || value.is_undefined() {
+                Expr::Null
+            } else {
+                Expr::Error(ExprError::Value)
+            }
+        })
+        .collect())
 }
 
 /// Serializes the value as JSON
@@ -62,7 +94,6 @@ fn json_string(v: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use formula::ExprError;
 
     #[test]
     fn test_array_to_string() {
