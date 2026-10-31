@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- MSRV is now Rust 1.99
+- MSRV is now Rust 1.99, and the crates use the 2024 edition
 - Upgraded dependencies, and replaced `rand` with `getrandom`
 - Invalid input in many functions returns an error instead of panicking, e.g. `EDATE`, `EOMONTH`, `RIGHT`, `MID`, `REPLACE`, `FINDB`, `SEARCHB`, `YEAR('2020')`, `REPT` with a huge count
 - `WEEKNUM` and `FILTERXML` return `Error::NotImplemented` instead of panicking

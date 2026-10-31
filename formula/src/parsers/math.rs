@@ -1,6 +1,6 @@
 use super::{
-    helper::{number, parser_error},
     Result,
+    helper::{number, parser_error},
 };
 use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;

@@ -1,5 +1,5 @@
 use super::{Halt, Result};
-use crate::{error::Error, Expr, ExprError, Formula, Rule};
+use crate::{Expr, ExprError, Formula, Rule, error::Error};
 use pest::iterators::{Pair, Pairs};
 
 /// Builds the error for an invalid call of `rule`, only formatting the rule name when an error actually happens

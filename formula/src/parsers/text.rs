@@ -1,4 +1,4 @@
-use super::{helper::parser_error, Result};
+use super::{Result, helper::parser_error};
 use crate::{Expr, Formula, Rule};
 use pest::iterators::Pair;
 
@@ -196,11 +196,7 @@ impl Formula<'_> {
                 };
 
                 let text = format!("{number:.0$}", decimals.max(0.0) as usize);
-                if no_commas {
-                    text
-                } else {
-                    Self::group_thousands(&text)
-                }
+                if no_commas { text } else { Self::group_thousands(&text) }
             }
             _ => return Err(parser_error(rule)),
         };

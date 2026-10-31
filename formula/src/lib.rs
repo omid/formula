@@ -78,7 +78,7 @@ mod parsers;
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use parsers::Halt;
-use pest::{iterators::Pair, Parser};
+use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 
 #[derive(Parser, Debug)]

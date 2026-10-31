@@ -1,5 +1,5 @@
-use super::{helper::parser_error, Result};
-use crate::{error::Error, Expr, ExprError, Formula, Rule};
+use super::{Result, helper::parser_error};
+use crate::{Expr, ExprError, Formula, Rule, error::Error};
 use chrono::{Datelike, Months, NaiveDate, NaiveTime, TimeDelta, Timelike, Utc, Weekday};
 use pest::iterators::Pair;
 

@@ -10,7 +10,7 @@ pub(crate) mod statistical;
 pub(crate) mod text;
 pub(crate) mod web;
 
-use crate::{error::Error, ExprError};
+use crate::{ExprError, error::Error};
 
 /// Stops an evaluation early
 #[derive(Debug)]

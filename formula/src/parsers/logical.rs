@@ -1,5 +1,5 @@
-use super::{helper::parser_error, Halt, Result};
-use crate::{error::Error, Expr, ExprError, Formula, Rule};
+use super::{Halt, Result, helper::parser_error};
+use crate::{Expr, ExprError, Formula, Rule, error::Error};
 use pest::iterators::Pair;
 
 impl Formula<'_> {

@@ -1,5 +1,5 @@
-use super::{helper::parser_error, Result};
-use crate::{error::Error, Expr, Formula, Rule};
+use super::{Result, helper::parser_error};
+use crate::{Expr, Formula, Rule, error::Error};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
