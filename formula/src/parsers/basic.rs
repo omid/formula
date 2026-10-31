@@ -30,9 +30,11 @@ impl Evaluator<'_> {
                 Some('r') => string.push('\r'),
                 Some('t') => string.push('\t'),
                 Some('u') => {
-                    let code = chars.by_ref().take(4).collect::<String>();
-                    let c = u32::from_str_radix(&code, 16).ok().and_then(char::from_u32);
-                    string.push(c.unwrap_or(char::REPLACEMENT_CHARACTER));
+                    let code = chars
+                        .by_ref()
+                        .take(4)
+                        .try_fold(0, |code, digit| Some(code * 16 + digit.to_digit(16)?));
+                    string.push(code.and_then(char::from_u32).unwrap_or(char::REPLACEMENT_CHARACTER));
                 }
                 // quotes and backslash
                 Some(c) => string.push(c),

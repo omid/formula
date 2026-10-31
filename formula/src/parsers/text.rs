@@ -14,11 +14,12 @@ const MAX_FIXED_DECIMALS: f64 = 127.0;
 impl Evaluator<'_> {
     pub(crate) fn parse_left(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_text(&mut args)?;
+        let mut text = self.get_text(&mut args)?;
         let chars = self.get_opt_number(&mut args, 1.0)?;
 
         if chars >= 0.0 {
-            Ok(Expr::String(text.chars().take(chars as usize).collect()))
+            text.truncate(Self::char_index(&text, chars as usize));
+            Ok(Expr::String(text))
         } else {
             Err(ExprError::Value)
         }
@@ -41,12 +42,13 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_right(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_text(&mut args)?;
+        let mut text = self.get_text(&mut args)?;
         let chars = self.get_opt_number(&mut args, 1.0)?;
 
         if chars >= 0.0 {
-            let start = text.chars().count().saturating_sub(chars as usize);
-            Ok(Expr::String(text.chars().skip(start).collect()))
+            let skip = text.chars().count().saturating_sub(chars as usize);
+            text.replace_range(..Self::char_index(&text, skip), "");
+            Ok(Expr::String(text))
         } else {
             Err(ExprError::Value)
         }
@@ -69,14 +71,15 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_mid(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_text(&mut args)?;
+        let mut text = self.get_text(&mut args)?;
         let start = self.get_number(&mut args)?;
         let len = self.get_number(&mut args)?;
 
         if start >= 1.0 && len >= 0.0 {
-            Ok(Expr::String(
-                text.chars().skip(start as usize - 1).take(len as usize).collect(),
-            ))
+            let start = Self::char_index(&text, start as usize - 1);
+            text.truncate(start + Self::char_index(&text[start..], len as usize));
+            text.replace_range(..start, "");
+            Ok(Expr::String(text))
         } else {
             Err(ExprError::Value)
         }
@@ -212,16 +215,16 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_replace(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_text(&mut args)?;
+        let mut text = self.get_text(&mut args)?;
         let start = self.get_number(&mut args)?;
         let len = self.get_number(&mut args)?;
         let new_text = self.get_text(&mut args)?;
 
         if start >= 1.0 && len >= 0.0 {
-            let mut chars = text.chars();
-            let start_text = chars.by_ref().take(start as usize - 1).collect::<String>();
-            let end_text = chars.skip(len as usize).collect::<String>();
-            Ok(Expr::String(format!("{start_text}{new_text}{end_text}")))
+            let start = Self::char_index(&text, start as usize - 1);
+            let end = start + Self::char_index(&text[start..], len as usize);
+            text.replace_range(start..end, &new_text);
+            Ok(Expr::String(text))
         } else {
             Err(ExprError::Value)
         }
@@ -260,12 +263,14 @@ impl Evaluator<'_> {
     /// Like Excel, only spaces are removed and the inner runs of spaces become one space
     pub(crate) fn parse_trim(&self, pair: Pair<Rule>) -> Result<Expr> {
         self.parse_unary_text(pair, |text| {
-            Expr::String(
-                text.split(' ')
-                    .filter(|word| !word.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            )
+            let mut trimmed = String::with_capacity(text.len());
+            for word in text.split(' ').filter(|word| !word.is_empty()) {
+                if !trimmed.is_empty() {
+                    trimmed.push(' ');
+                }
+                trimmed.push_str(word);
+            }
+            Expr::String(trimmed)
         })
     }
 
@@ -355,6 +360,11 @@ impl Evaluator<'_> {
             find(&within_text, &find_text, start_num)
         };
         index.map(Expr::Number).ok_or(ExprError::Value)
+    }
+
+    /// The byte index of the character after the first `chars` characters, so texts can be cut where they are
+    fn char_index(text: &str, chars: usize) -> usize {
+        text.char_indices().nth(chars).map_or(text.len(), |(index, _)| index)
     }
 
     /// 1-based character position of `needle`, searching from the `start_num`th character
@@ -756,5 +766,25 @@ mod tests {
         let formula = Formula::new("=FIXED(1e300, 10, TRUE)").unwrap();
         let value = formula.parse().unwrap();
         assert!(matches!(value, Expr::String(text) if text.len() == 301 + 11 && text.ends_with(".0000000000")));
+    }
+
+    #[test]
+    fn test_parse_cuts_between_characters() {
+        for (formula, text) in [
+            ("=LEFT('héllo', 2)", "hé"),
+            ("=LEFT('héllo', 10)", "héllo"),
+            ("=RIGHT('héllo', 4)", "éllo"),
+            ("=RIGHT('héllo', 0)", ""),
+            ("=MID('héllo', 2, 2)", "él"),
+            ("=MID('héllo', 4, 10)", "lo"),
+            ("=MID('héllo', 10, 2)", ""),
+            ("=REPLACE('héllo', 2, 1, 'e')", "hello"),
+            ("=REPLACE('héllo', 1, 0, '¡')", "¡héllo"),
+            ("=REPLACE('abc', 10, 1, 'x')", "abcx"),
+            ("=TRIM('  é   ü  ')", "é ü"),
+        ] {
+            let value = Formula::new(formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::String(text.to_string()), "{formula}");
+        }
     }
 }

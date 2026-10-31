@@ -1,7 +1,7 @@
 use super::{Evaluator, Result};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
-use std::ops::RangeInclusive;
+use std::{borrow::Cow, ops::RangeInclusive};
 
 /// Excel's last column, `XFD`
 const MAX_COLUMN: u32 = 16_384;
@@ -11,8 +11,9 @@ const MAX_ROW: u32 = 1_048_576;
 const MAX_RANGE_CELLS: u64 = 1_048_576;
 
 /// A reference like `Sheet2!B3:A1`, with its corners in order
-pub(crate) struct Reference {
-    sheet: Option<String>,
+pub(crate) struct Reference<'i> {
+    /// Borrowed from the formula, unless it's quoted with `''` in it
+    sheet: Option<Cow<'i, str>>,
     /// The first and last row, `None` for whole columns like `A:C`
     rows: Option<(u32, u32)>,
     /// The first and last column, `None` for whole rows like `2:3`
@@ -21,27 +22,34 @@ pub(crate) struct Reference {
     is_cell: bool,
 }
 
-impl Reference {
+impl<'i> Reference<'i> {
     /// `None` if the reference is outside of an Excel sheet, like `XFE1` or `A1048577`
-    pub(crate) fn new(pair: Pair<Rule>) -> Option<Self> {
+    pub(crate) fn new(pair: Pair<'i, Rule>) -> Option<Self> {
         let mut sheet = None;
-        let mut rows = Vec::with_capacity(2);
-        let mut columns = Vec::with_capacity(2);
+        let mut rows = None;
+        let mut columns = None;
+        // a single cell has one row, ranges have two corners
+        let mut corners = 0;
         for part in pair.into_inner() {
             match part.as_rule() {
-                Rule::sheet_name => sheet = Some(part.as_str().to_string()),
-                Rule::quoted_sheet_name => sheet = Some(part.as_str().replace("''", "'")),
-                Rule::column => columns.push(Self::column_number(part.as_str())?),
-                Rule::row => rows.push(Self::row_number(part.as_str())?),
+                Rule::quoted_sheet_name if part.as_str().contains("''") => {
+                    sheet = Some(Cow::Owned(part.as_str().replace("''", "'")));
+                }
+                Rule::sheet_name | Rule::quoted_sheet_name => sheet = Some(Cow::Borrowed(part.as_str())),
+                Rule::column => columns = Some(Self::span(columns, Self::column_number(part.as_str())?)),
+                Rule::row => {
+                    rows = Some(Self::span(rows, Self::row_number(part.as_str())?));
+                    corners += 1;
+                }
                 _ => {}
             }
         }
 
         Some(Self {
             sheet,
-            is_cell: rows.len() == 1 && columns.len() == 1,
-            rows: Self::span(&rows),
-            columns: Self::span(&columns),
+            rows,
+            columns,
+            is_cell: corners == 1,
         })
     }
 
@@ -57,13 +65,9 @@ impl Reference {
         row.trim_start_matches('$').parse().ok().filter(|row| *row <= MAX_ROW)
     }
 
-    /// The first and last of one or two corners
-    fn span(corners: &[u32]) -> Option<(u32, u32)> {
-        match *corners {
-            [corner] => Some((corner, corner)),
-            [start, end] => Some((start.min(end), start.max(end))),
-            _ => None,
-        }
+    /// The first and last of the corners so far, with `corner`
+    fn span(span: Option<(u32, u32)>, corner: u32) -> (u32, u32) {
+        span.map_or((corner, corner), |(first, last)| (first.min(corner), last.max(corner)))
     }
 }
 
@@ -104,7 +108,7 @@ impl Evaluator<'_> {
     }
 
     /// The rows and columns that a reference reads, whole columns and rows only cover the cells with data
-    fn area(&self, reference: &Reference) -> Result<(RangeInclusive<u32>, RangeInclusive<u32>)> {
+    fn area(&self, reference: &Reference<'_>) -> Result<(RangeInclusive<u32>, RangeInclusive<u32>)> {
         let size = self
             .cells
             .size(reference.sheet.as_deref())
