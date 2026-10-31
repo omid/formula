@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `NA()` function
+- Like Excel, formulas can nest functions up to 64 levels deep, deeper formulas return `Error::Nesting`
+  instead of overflowing the stack
 
 ### Changed
 

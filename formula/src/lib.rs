@@ -141,6 +141,37 @@ impl std::fmt::Display for ExprError {
 
 pub type Result<T> = std::result::Result<T, error::Error>;
 
+/// Excel's limit of nested functions
+const MAX_NESTING: usize = 64;
+
+/// Rejects formulas that are nested deeper than Excel allows,
+/// before the recursive parser and evaluator could overflow the stack
+fn check_nesting(formula: &str) -> Result<()> {
+    let mut depth = 0_usize;
+    let mut quote = None;
+    let mut chars = formula.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            // skip escaped characters inside strings
+            (Some(_), '\\') => {
+                chars.next();
+            }
+            (Some(q), c) if c == q => quote = None,
+            (Some(_), _) => {}
+            (None, '\'' | '"') => quote = Some(c),
+            (None, '(' | '{') => {
+                depth += 1;
+                if depth > MAX_NESTING {
+                    return Err(error::Error::Nesting(MAX_NESTING));
+                }
+            }
+            (None, ')' | '}') => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 impl<'a> Formula<'a> {
     /// To interpret and prepare a new formula, you need to call the `new` method, like the code below:
     ///
@@ -157,8 +188,9 @@ impl<'a> Formula<'a> {
     ///
     /// # Errors
     ///
-    /// Will return `Err` if the formula is not valid.
+    /// Will return `Err` if the formula is not valid, or if it nests functions more than 64 levels deep like Excel.
     pub fn new(formula: &'a str) -> Result<Self> {
+        check_nesting(formula)?;
         let pairs = FormulaInner::parse(Rule::root, formula)
             .map_err(|_| error::Error::Parser("root".to_string()))?
             .next()
@@ -182,42 +214,44 @@ impl<'a> Formula<'a> {
 
     #[allow(clippy::too_many_lines)]
     fn parse_pair(pair: Pair<Rule>) -> parsers::Result<Expr> {
+        // Picking the function first and calling it once keeps this frame small,
+        // so deeply nested formulas don't overflow the stack in debug builds
         #[allow(clippy::match_same_arms)]
-        let res = match pair.as_rule() {
+        let parse: fn(Pair<Rule>) -> parsers::Result<Expr> = match pair.as_rule() {
             // Operators
-            Rule::add => Self::parse_add(pair)?,
-            Rule::sub => Self::parse_sub(pair)?,
-            Rule::mul => Self::parse_mul(pair)?,
-            Rule::div => Self::parse_div(pair)?,
-            Rule::pow => Self::parse_pow(pair)?,
-            Rule::eq => Self::parse_eq(pair)?,
-            Rule::ne => Self::parse_ne(pair)?,
-            Rule::gt => Self::parse_gt(pair)?,
-            Rule::lt => Self::parse_lt(pair)?,
-            Rule::gte => Self::parse_gte(pair)?,
-            Rule::lte => Self::parse_lte(pair)?,
-            Rule::percent => Self::parse_percent(pair)?,
-            Rule::negate => Self::parse_negate(pair)?,
+            Rule::add => Self::parse_add,
+            Rule::sub => Self::parse_sub,
+            Rule::mul => Self::parse_mul,
+            Rule::div => Self::parse_div,
+            Rule::pow => Self::parse_pow,
+            Rule::eq => Self::parse_eq,
+            Rule::ne => Self::parse_ne,
+            Rule::gt => Self::parse_gt,
+            Rule::lt => Self::parse_lt,
+            Rule::gte => Self::parse_gte,
+            Rule::lte => Self::parse_lte,
+            Rule::percent => Self::parse_percent,
+            Rule::negate => Self::parse_negate,
 
             // Date and time functions
-            Rule::date => Self::parse_date(pair)?,
-            Rule::time => Self::parse_time(pair)?,
-            Rule::year => Self::parse_year(pair)?,
-            Rule::month => Self::parse_month(pair)?,
-            Rule::day => Self::parse_day(pair)?,
-            Rule::days => Self::parse_days(pair)?,
-            Rule::edate => Self::parse_edate(pair)?,
-            Rule::eomonth => Self::parse_eomonth(pair)?,
-            Rule::datevalue => Self::parse_datevalue(pair)?,
-            Rule::timevalue => Self::parse_timevalue(pair)?,
-            Rule::hour => Self::parse_hour(pair)?,
-            Rule::minute => Self::parse_minute(pair)?,
-            Rule::second => Self::parse_second(pair)?,
-            Rule::isoweeknum => Self::parse_isoweeknum(pair)?,
-            Rule::weeknum => Self::parse_weeknum(pair)?,
-            Rule::weekday => Self::parse_weekday(pair)?,
-            Rule::now => Self::parse_now(pair)?,
-            Rule::today => Self::parse_today(pair)?,
+            Rule::date => Self::parse_date,
+            Rule::time => Self::parse_time,
+            Rule::year => Self::parse_year,
+            Rule::month => Self::parse_month,
+            Rule::day => Self::parse_day,
+            Rule::days => Self::parse_days,
+            Rule::edate => Self::parse_edate,
+            Rule::eomonth => Self::parse_eomonth,
+            Rule::datevalue => Self::parse_datevalue,
+            Rule::timevalue => Self::parse_timevalue,
+            Rule::hour => Self::parse_hour,
+            Rule::minute => Self::parse_minute,
+            Rule::second => Self::parse_second,
+            Rule::isoweeknum => Self::parse_isoweeknum,
+            Rule::weeknum => Self::parse_weeknum,
+            Rule::weekday => Self::parse_weekday,
+            Rule::now => Self::parse_now,
+            Rule::today => Self::parse_today,
             // TODO remaining date and time functions
             Rule::networkdays
             | Rule::networkdaysintl
@@ -228,32 +262,32 @@ impl<'a> Formula<'a> {
             | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
 
             // Text functions
-            Rule::left => Self::parse_left(pair)?,
-            Rule::leftb => Self::parse_leftb(pair)?,
-            Rule::right => Self::parse_right(pair)?,
-            Rule::rightb => Self::parse_rightb(pair)?,
-            Rule::mid => Self::parse_mid(pair)?,
-            Rule::midb => Self::parse_midb(pair)?,
-            Rule::char | Rule::unichar => Self::parse_char(pair)?,
-            Rule::code | Rule::unicode => Self::parse_code(pair)?,
-            Rule::concat | Rule::concatenate => Self::parse_concat(pair)?,
-            Rule::exact => Self::parse_exact(pair)?,
-            Rule::find => Self::parse_find(pair)?,
-            Rule::findb => Self::parse_findb(pair)?,
-            Rule::search => Self::parse_search(pair)?,
-            Rule::searchb => Self::parse_searchb(pair)?,
-            Rule::fixed => Self::parse_fixed(pair)?,
-            Rule::len => Self::parse_len(pair)?,
-            Rule::lenb => Self::parse_lenb(pair)?,
-            Rule::lower => Self::parse_lower(pair)?,
-            Rule::upper => Self::parse_upper(pair)?,
-            Rule::rept => Self::parse_rept(pair)?,
-            Rule::replace => Self::parse_replace(pair)?,
-            Rule::replaceb => Self::parse_replaceb(pair)?,
-            Rule::textjoin => Self::parse_textjoin(pair)?,
-            Rule::trim => Self::parse_trim(pair)?,
-            Rule::t => Self::parse_t(pair)?,
-            Rule::proper => Self::parse_proper(pair)?,
+            Rule::left => Self::parse_left,
+            Rule::leftb => Self::parse_leftb,
+            Rule::right => Self::parse_right,
+            Rule::rightb => Self::parse_rightb,
+            Rule::mid => Self::parse_mid,
+            Rule::midb => Self::parse_midb,
+            Rule::char | Rule::unichar => Self::parse_char,
+            Rule::code | Rule::unicode => Self::parse_code,
+            Rule::concat | Rule::concatenate => Self::parse_concat,
+            Rule::exact => Self::parse_exact,
+            Rule::find => Self::parse_find,
+            Rule::findb => Self::parse_findb,
+            Rule::search => Self::parse_search,
+            Rule::searchb => Self::parse_searchb,
+            Rule::fixed => Self::parse_fixed,
+            Rule::len => Self::parse_len,
+            Rule::lenb => Self::parse_lenb,
+            Rule::lower => Self::parse_lower,
+            Rule::upper => Self::parse_upper,
+            Rule::rept => Self::parse_rept,
+            Rule::replace => Self::parse_replace,
+            Rule::replaceb => Self::parse_replaceb,
+            Rule::textjoin => Self::parse_textjoin,
+            Rule::trim => Self::parse_trim,
+            Rule::t => Self::parse_t,
+            Rule::proper => Self::parse_proper,
             // TODO remaining text functions
             Rule::arraytotext
             | Rule::asc
@@ -274,14 +308,14 @@ impl<'a> Formula<'a> {
             // Engineering functions
             // Financial functions
             // Logical functions
-            Rule::and => Self::parse_and(pair)?,
-            Rule::or => Self::parse_or(pair)?,
-            Rule::xor => Self::parse_xor(pair)?,
-            Rule::not => Self::parse_not(pair)?,
-            Rule::if_ => Self::parse_if(pair)?,
-            Rule::ifna => Self::parse_ifna(pair)?,
-            Rule::iferror => Self::parse_iferror(pair)?,
-            Rule::na => Self::parse_na(pair)?,
+            Rule::and => Self::parse_and,
+            Rule::or => Self::parse_or,
+            Rule::xor => Self::parse_xor,
+            Rule::not => Self::parse_not,
+            Rule::if_ => Self::parse_if,
+            Rule::ifna => Self::parse_ifna,
+            Rule::iferror => Self::parse_iferror,
+            Rule::na => Self::parse_na,
             // TODO remaining text functions
             Rule::let_
             | Rule::bycol
@@ -294,32 +328,32 @@ impl<'a> Formula<'a> {
             | Rule::switch
             | Rule::ifs => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
             // Math functions
-            Rule::abs => Self::parse_abs(pair)?,
-            Rule::acos => Self::parse_acos(pair)?,
-            Rule::acosh => Self::parse_acosh(pair)?,
-            Rule::asin => Self::parse_asin(pair)?,
-            Rule::asinh => Self::parse_asinh(pair)?,
-            Rule::cos => Self::parse_cos(pair)?,
-            Rule::cosh => Self::parse_cosh(pair)?,
-            Rule::sin => Self::parse_sin(pair)?,
-            Rule::sinh => Self::parse_sinh(pair)?,
-            Rule::tan => Self::parse_tan(pair)?,
-            Rule::tanh => Self::parse_tanh(pair)?,
-            Rule::atan => Self::parse_atan(pair)?,
-            Rule::atan2 => Self::parse_atan2(pair)?,
-            Rule::atanh => Self::parse_atanh(pair)?,
-            Rule::pi => Self::parse_pi(pair)?,
-            Rule::power => Self::parse_pow(pair)?,
-            Rule::mod_ => Self::parse_mod(pair)?,
-            Rule::log => Self::parse_log(pair)?,
-            Rule::log10 => Self::parse_log10(pair)?,
-            Rule::ln => Self::parse_ln(pair)?,
-            Rule::sqrt => Self::parse_sqrt(pair)?,
-            Rule::sqrtpi => Self::parse_sqrtpi(pair)?,
-            Rule::rand => Self::parse_rand(pair)?,
-            Rule::sign => Self::parse_sign(pair)?,
-            Rule::exp => Self::parse_exp(pair)?,
-            Rule::sum => Self::parse_sum(pair)?,
+            Rule::abs => Self::parse_abs,
+            Rule::acos => Self::parse_acos,
+            Rule::acosh => Self::parse_acosh,
+            Rule::asin => Self::parse_asin,
+            Rule::asinh => Self::parse_asinh,
+            Rule::cos => Self::parse_cos,
+            Rule::cosh => Self::parse_cosh,
+            Rule::sin => Self::parse_sin,
+            Rule::sinh => Self::parse_sinh,
+            Rule::tan => Self::parse_tan,
+            Rule::tanh => Self::parse_tanh,
+            Rule::atan => Self::parse_atan,
+            Rule::atan2 => Self::parse_atan2,
+            Rule::atanh => Self::parse_atanh,
+            Rule::pi => Self::parse_pi,
+            Rule::power => Self::parse_pow,
+            Rule::mod_ => Self::parse_mod,
+            Rule::log => Self::parse_log,
+            Rule::log10 => Self::parse_log10,
+            Rule::ln => Self::parse_ln,
+            Rule::sqrt => Self::parse_sqrt,
+            Rule::sqrtpi => Self::parse_sqrtpi,
+            Rule::rand => Self::parse_rand,
+            Rule::sign => Self::parse_sign,
+            Rule::exp => Self::parse_exp,
+            Rule::sum => Self::parse_sum,
 
             // TODO remaining text functions
             Rule::ceiling
@@ -380,16 +414,16 @@ impl<'a> Formula<'a> {
 
             // Statistical functions
             // Web functions
-            Rule::encodeurl => Self::parse_encodeurl(pair)?,
-            Rule::filterxml => Self::parse_filterxml(pair)?,
-            Rule::webservice => Self::parse_webservice(pair)?,
+            Rule::encodeurl => Self::parse_encodeurl,
+            Rule::filterxml => Self::parse_filterxml,
+            Rule::webservice => Self::parse_webservice,
 
             // Basic types
-            Rule::num => Self::parse_num(pair)?,
-            Rule::string => Self::parse_string(pair)?,
-            Rule::bool_true => Self::parse_true(pair)?,
-            Rule::bool_false => Self::parse_false(pair)?,
-            Rule::array => Self::parse_array(pair)?,
+            Rule::num => Self::parse_num,
+            Rule::string => Self::parse_string,
+            Rule::bool_true => Self::parse_true,
+            Rule::bool_false => Self::parse_false,
+            Rule::array => Self::parse_array,
             Rule::formula
             | Rule::root
             | Rule::OP
@@ -415,6 +449,7 @@ impl<'a> Formula<'a> {
                 unreachable!()
             }
         };
+        let res = parse(pair)?;
 
         // Spreadsheet errors stop the evaluation until a function handles them
         match res {
@@ -427,6 +462,31 @@ impl<'a> Formula<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_nesting_limit() {
+        let nested = |levels: usize| format!("={}-1{}", "ABS(".repeat(levels), ")".repeat(levels));
+
+        let formula = nested(MAX_NESTING);
+        let value = Formula::new(&formula).unwrap().parse().unwrap();
+        assert_eq!(value, Expr::Number(1.0));
+
+        for levels in [MAX_NESTING + 1, 100_000] {
+            let formula = nested(levels);
+            assert!(matches!(
+                Formula::new(&formula),
+                Err(error::Error::Nesting(MAX_NESTING))
+            ));
+        }
+
+        let formula = format!("={}1{}", "{".repeat(MAX_NESTING + 1), "}".repeat(MAX_NESTING + 1));
+        assert!(matches!(Formula::new(&formula), Err(error::Error::Nesting(_))));
+
+        // brackets inside strings don't count
+        let formula = format!("=LEN('{}\\'{}')", "(".repeat(100), "{".repeat(100));
+        let value = Formula::new(&formula).unwrap().parse().unwrap();
+        assert_eq!(value, Expr::Number(201.0));
+    }
 
     #[test]
     fn test_not_implemented_functions_are_recognized() {
