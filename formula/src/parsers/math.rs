@@ -140,6 +140,49 @@ mod tests {
     use crate::{ExprError, Formula};
 
     #[test]
+    fn test_parse_trigonometric_types() {
+        type Function = fn(f64) -> f64;
+        let functions: [(&str, Function, f64); 13] = [
+            ("SIN", f64::sin, 0.5),
+            ("COS", f64::cos, 0.5),
+            ("TAN", f64::tan, 0.5),
+            ("ASIN", f64::asin, 0.5),
+            ("ACOS", f64::acos, 0.5),
+            ("ATAN", f64::atan, 0.5),
+            ("SINH", f64::sinh, 0.5),
+            ("COSH", f64::cosh, 0.5),
+            ("TANH", f64::tanh, 0.5),
+            ("ASINH", f64::asinh, 0.5),
+            ("ACOSH", f64::acosh, 1.5),
+            ("ATANH", f64::atanh, 0.5),
+            ("EXP", f64::exp, 0.5),
+        ];
+        for (name, f, x) in functions {
+            let formula = format!("={name}({x})");
+            let value = Formula::new(&formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::Number(f(x)), "{name}");
+        }
+
+        let formula = Formula::new("=PI()").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(PI));
+
+        let formula = Formula::new("=SIN(F.DIV(PI(), 2))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(1.0));
+
+        // outside of their domain
+        for formula in ["=ASIN(2)", "=ACOS(-2)", "=ACOSH(0.5)", "=ATANH(1)", "=EXP(1000)"] {
+            let value = Formula::new(formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::Error(ExprError::Number), "{formula}");
+        }
+
+        let formula = Formula::new("=COS('a')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Value));
+    }
+
+    #[test]
     #[allow(clippy::too_many_lines)]
     fn test_parse_math_types() {
         let formula = Formula::new("=ABS(-1)").unwrap();
