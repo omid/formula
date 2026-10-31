@@ -65,8 +65,9 @@ impl Formula<'_> {
         Self::parse_unary_number(pair, |operand| -operand)
     }
 
-    /// Compares two values of the same type.
-    /// Like Excel, numbers that only differ by floating point noise (e.g. `0.1 + 0.2` and `0.3`) are equal.
+    /// Compares two values of the same type. Like Excel:
+    /// - numbers that only differ by floating point noise (e.g. `0.1 + 0.2` and `0.3`) are equal
+    /// - texts are compared case-insensitively, `EXACT` is the case-sensitive comparison
     fn parse_comparison(pair: Pair<Rule>, check: fn(Ordering) -> bool) -> Result<Expr> {
         let rule = pair.as_rule();
         let mut args = pair.into_inner();
@@ -77,8 +78,8 @@ impl Formula<'_> {
             (Expr::Number(n1), Expr::Number(n2)) if (n1 - n2).abs() <= 1e-15 * n1.abs().max(n2.abs()) => {
                 Some(Ordering::Equal)
             }
+            (Expr::String(s1), Expr::String(s2)) => Some(s1.to_lowercase().cmp(&s2.to_lowercase())),
             (Expr::Number(_), Expr::Number(_))
-            | (Expr::String(_), Expr::String(_))
             | (Expr::Time(_), Expr::Time(_))
             | (Expr::Datetime(_), Expr::Datetime(_))
             | (Expr::Date(_), Expr::Date(_))
@@ -179,6 +180,26 @@ mod tests {
         let formula = Formula::new("=F.NEGATE(5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(-5.0));
+
+        let formula = Formula::new("=F.EQ('a','A')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.NE('Straße','STRASSE')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.NE('Ä','ä')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=F.LT('a','B')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.GTE('b','A')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
 
         let formula = Formula::new("=F.LT('a','b')").unwrap();
         let value = formula.parse().unwrap();

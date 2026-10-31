@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Like Excel, they pass through the functions that use them, until `IFERROR`, `IFNA` or the result
 - Division by zero is `#DIV/0!`, and results that are not finite numbers (e.g. `SQRT(-1)`, `LN(0)`) are `#NUM!`
 - `F.EQ`, `F.NE` and the other comparisons agree with each other, and ignore floating point noise like Excel
+- Text comparisons are case-insensitive like Excel, e.g. `F.EQ('a', 'A')` is `TRUE`. `EXACT` stays case-sensitive
 - `IF` only evaluates the selected branch, and returns `FALSE` when the false branch is missing
 - `IFERROR` catches spreadsheet errors, `IFNA` only catches `#N/A` and returns the value otherwise
 - `WEEKDAY` uses Excel's numbering and supports the return type argument
