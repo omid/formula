@@ -1,24 +1,24 @@
-use super::Result;
-use crate::{Expr, ExprError, Formula, Rule};
+use super::{Evaluator, Result};
+use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
-impl Formula<'_> {
-    pub(crate) fn parse_encodeurl(pair: Pair<Rule>) -> Result<Expr> {
+impl Evaluator {
+    pub(crate) fn parse_encodeurl(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::String(url) => Ok(Expr::String(encode(&url).into_owned())),
             _ => Err(ExprError::Value),
         }
     }
 
     // TODO a draft, `Formula::new` rejects it as not implemented yet
-    // pub(crate) fn parse_filterxml(pair: Pair<Rule>) -> Result<Expr> {
+    // pub(crate) fn parse_filterxml(&self, pair: Pair<Rule>) -> Result<Expr> {
     //     let rule_name = format!("{:?}", &pair.as_rule());
     //     let mut args = pair.into_inner();
-    //     let xml = Self::get_formula(&mut args, &rule_name)?;
-    //     let xpath = Self::get_formula(&mut args, &rule_name)?;
+    //     let xml = self.get_formula(&mut args, &rule_name)?;
+    //     let xpath = self.get_formula(&mut args, &rule_name)?;
     //
     //     let body = match (xml, xpath) {
     //         (Expr::String(xml), Expr::String(xpath)) => {
@@ -31,10 +31,10 @@ impl Formula<'_> {
     // }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn parse_webservice(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_webservice(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::String(url) => Self::web_request(&url).map(Expr::String),
             _ => Err(ExprError::Value),
         }

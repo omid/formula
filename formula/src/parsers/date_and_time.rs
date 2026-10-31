@@ -1,27 +1,27 @@
-use super::Result;
-use crate::{Expr, ExprError, Formula, Rule};
+use super::{Evaluator, Result};
+use crate::{Expr, ExprError, Rule};
 use chrono::{Datelike, Months, NaiveDate, NaiveTime, TimeDelta, Timelike, Utc, Weekday};
 use pest::iterators::Pair;
 
 /// Excel's limit for each argument of `TIME`
 const MAX_TIME_PART: f64 = 32_767.0;
 
-impl Formula<'_> {
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_now(_pair: Pair<Rule>) -> Result<Expr> {
+impl Evaluator {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_now(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Datetime(Utc::now()))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_today(_pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_today(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Date(Utc::now().naive_utc().date()))
     }
 
     /// ref: <https://support.microsoft.com/en-us/office/weekday-function-60e44483-2ed1-439f-8bd0-e404c190949a>
-    pub(crate) fn parse_weekday(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_weekday(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args)?)?;
-        let return_type = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let date = Self::to_date(self.get_formula(&mut args)?)?;
+        let return_type = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let weekday = date.weekday();
         let weekday = match return_type {
@@ -42,11 +42,11 @@ impl Formula<'_> {
     }
 
     // TODO a draft, `Formula::new` rejects it as not implemented yet
-    // pub(crate) fn parse_weeknum(pair: Pair<Rule>) -> Result<Expr> {
+    // pub(crate) fn parse_weeknum(&self, pair: Pair<Rule>) -> Result<Expr> {
     //     let rule_name = format!("{:?}", &pair.as_rule());
     //     let mut args = pair.into_inner();
-    //     let date = Self::get_formula(&mut args, &rule_name)?;
-    //     let return_type = args.next().map(|v| Self::parse_pair(v)?).unwrap_or(Expr::Number(1.0));
+    //     let date = self.get_formula(&mut args, &rule_name)?;
+    //     let return_type = args.next().map(|v| self.parse_pair(v)?).unwrap_or(Expr::Number(1.0));
     //
     //     let start_week = match return_type {
     //         Expr::Number(16.0) => Weekday::Sat,
@@ -65,44 +65,44 @@ impl Formula<'_> {
     //     Ok(Expr::Number(week as i32 as f64))
     // }
 
-    pub(crate) fn parse_isoweeknum(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_date_part(pair, |date| f64::from(date.iso_week().week()))
+    pub(crate) fn parse_isoweeknum(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_date_part(pair, |date| f64::from(date.iso_week().week()))
     }
 
-    pub(crate) fn parse_second(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_time_part(pair, |time| f64::from(time.second()))
+    pub(crate) fn parse_second(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_time_part(pair, |time| f64::from(time.second()))
     }
 
-    pub(crate) fn parse_minute(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_time_part(pair, |time| f64::from(time.minute()))
+    pub(crate) fn parse_minute(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_time_part(pair, |time| f64::from(time.minute()))
     }
 
-    pub(crate) fn parse_hour(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_time_part(pair, |time| f64::from(time.hour()))
+    pub(crate) fn parse_hour(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_time_part(pair, |time| f64::from(time.hour()))
     }
 
-    pub(crate) fn parse_timevalue(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_timevalue(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::String(timestring) => Ok(Expr::Time(Self::timestring_to_naivetime(&timestring)?)),
             _ => Err(ExprError::Value),
         }
     }
 
-    pub(crate) fn parse_datevalue(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_datevalue(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::String(datestring) => Ok(Expr::Date(Self::datestring_to_naivedate(&datestring)?)),
             _ => Err(ExprError::Value),
         }
     }
 
-    pub(crate) fn parse_eomonth(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_eomonth(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args)?)?;
-        let Expr::Number(num) = Self::get_formula(&mut args)? else {
+        let date = Self::to_date(self.get_formula(&mut args)?)?;
+        let Expr::Number(num) = self.get_formula(&mut args)? else {
             return Err(ExprError::Value);
         };
 
@@ -115,20 +115,20 @@ impl Formula<'_> {
         Ok(date.map_or(Expr::Error(ExprError::Number), Expr::Date))
     }
 
-    pub(crate) fn parse_edate(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_edate(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args)?)?;
-        let Expr::Number(num) = Self::get_formula(&mut args)? else {
+        let date = Self::to_date(self.get_formula(&mut args)?)?;
+        let Expr::Number(num) = self.get_formula(&mut args)? else {
             return Err(ExprError::Value);
         };
 
         Ok(Self::shift_months(date, num).map_or(Expr::Error(ExprError::Number), Expr::Date))
     }
 
-    pub(crate) fn parse_days(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_days(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let end_date = Self::get_formula(&mut args)?;
-        let start_date = Self::get_formula(&mut args)?;
+        let end_date = self.get_formula(&mut args)?;
+        let start_date = self.get_formula(&mut args)?;
 
         let days = match (end_date, start_date) {
             (Expr::Number(end_date), Expr::Number(start_date)) => end_date - start_date,
@@ -141,24 +141,24 @@ impl Formula<'_> {
         Ok(Expr::Number(days))
     }
 
-    pub(crate) fn parse_day(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_date_part(pair, |date| f64::from(date.day()))
+    pub(crate) fn parse_day(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_date_part(pair, |date| f64::from(date.day()))
     }
 
-    pub(crate) fn parse_month(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_date_part(pair, |date| f64::from(date.month()))
+    pub(crate) fn parse_month(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_date_part(pair, |date| f64::from(date.month()))
     }
 
-    pub(crate) fn parse_year(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_date_part(pair, |date| f64::from(date.year()))
+    pub(crate) fn parse_year(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_date_part(pair, |date| f64::from(date.year()))
     }
 
     /// Like Excel, the parts overflow into each other (e.g. 90 minutes) and the time wraps around midnight
-    pub(crate) fn parse_time(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_time(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let hour = Self::get_formula(&mut args)?;
-        let minute = Self::get_formula(&mut args)?;
-        let second = Self::get_formula(&mut args)?;
+        let hour = self.get_formula(&mut args)?;
+        let minute = self.get_formula(&mut args)?;
+        let second = self.get_formula(&mut args)?;
 
         let (Expr::Number(hour), Expr::Number(minute), Expr::Number(second)) = (hour, minute, second) else {
             return Err(ExprError::Value);
@@ -175,11 +175,11 @@ impl Formula<'_> {
 
     /// Like Excel, months and days overflow into the next or previous year and month,
     /// e.g. `DATE(2020, 13, 1)` is 2021-01-01 and `DATE(2020, 1, 0)` is 2019-12-31
-    pub(crate) fn parse_date(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_date(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let year = Self::get_formula(&mut args)?;
-        let month = Self::get_formula(&mut args)?;
-        let day = Self::get_formula(&mut args)?;
+        let year = self.get_formula(&mut args)?;
+        let month = self.get_formula(&mut args)?;
+        let day = self.get_formula(&mut args)?;
 
         let (Expr::Number(year), Expr::Number(month), Expr::Number(day)) = (year, month, day) else {
             return Err(ExprError::Value);
@@ -193,17 +193,17 @@ impl Formula<'_> {
     }
 
     /// Evaluates a function that takes one date
-    fn parse_date_part(pair: Pair<Rule>, part: impl FnOnce(NaiveDate) -> f64) -> Result<Expr> {
+    fn parse_date_part(&self, pair: Pair<Rule>, part: impl FnOnce(NaiveDate) -> f64) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args)?)?;
+        let date = Self::to_date(self.get_formula(&mut args)?)?;
         Ok(Expr::Number(part(date)))
     }
 
     /// Evaluates a function that takes one time
-    fn parse_time_part(pair: Pair<Rule>, part: impl FnOnce(NaiveTime) -> f64) -> Result<Expr> {
+    fn parse_time_part(&self, pair: Pair<Rule>, part: impl FnOnce(NaiveTime) -> f64) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        let time = match Self::get_formula(&mut args)? {
+        let time = match self.get_formula(&mut args)? {
             Expr::Time(time) => time,
             Expr::Datetime(datetime) => datetime.time(),
             Expr::String(time) => Self::timestring_to_naivetime(&time)?,

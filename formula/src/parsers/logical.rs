@@ -1,75 +1,75 @@
-use super::Result;
-use crate::{Expr, ExprError, Formula, Rule};
+use super::{Evaluator, Result};
+use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
-impl Formula<'_> {
-    pub(crate) fn parse_and(pair: Pair<Rule>) -> Result<Expr> {
-        Self::fold_bools(pair, |bool, b| bool && b)
+impl Evaluator {
+    pub(crate) fn parse_and(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.fold_bools(pair, |bool, b| bool && b)
     }
 
-    pub(crate) fn parse_or(pair: Pair<Rule>) -> Result<Expr> {
-        Self::fold_bools(pair, |bool, b| bool || b)
+    pub(crate) fn parse_or(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.fold_bools(pair, |bool, b| bool || b)
     }
 
-    pub(crate) fn parse_xor(pair: Pair<Rule>) -> Result<Expr> {
-        Self::fold_bools(pair, |bool, b| bool != b)
+    pub(crate) fn parse_xor(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.fold_bools(pair, |bool, b| bool != b)
     }
 
-    pub(crate) fn parse_not(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_not(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::Bool(b) => Ok(Expr::Bool(!b)),
             _ => Err(ExprError::Value),
         }
     }
 
     /// Falls back on any spreadsheet error
-    pub(crate) fn parse_iferror(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_iferror(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
         let value = args.next().ok_or(ExprError::Value)?;
         let error_value = args.next().ok_or(ExprError::Value)?;
 
-        match Self::parse_pair(value) {
-            Err(_) => Self::parse_pair(error_value),
+        match self.parse_pair(value) {
+            Err(_) => self.parse_pair(error_value),
             value => value,
         }
     }
 
     /// Falls back on `#N/A` only
-    pub(crate) fn parse_ifna(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_ifna(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
         let value = args.next().ok_or(ExprError::Value)?;
         let na_value = args.next().ok_or(ExprError::Value)?;
 
-        match Self::parse_pair(value) {
-            Err(ExprError::NotAvailable) => Self::parse_pair(na_value),
+        match self.parse_pair(value) {
+            Err(ExprError::NotAvailable) => self.parse_pair(na_value),
             value => value,
         }
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_na(_pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_na(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Error(ExprError::NotAvailable))
     }
 
     /// Only the selected branch is evaluated
-    pub(crate) fn parse_if(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_if(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let condition = Self::get_formula(&mut args)?;
+        let condition = self.get_formula(&mut args)?;
         let true_value = args.next().ok_or(ExprError::Value)?;
         let false_value = args.next();
 
         match condition {
-            Expr::Bool(true) => Self::parse_pair(true_value),
-            Expr::Bool(false) => false_value.map_or(Ok(Expr::Bool(false)), Self::parse_pair),
+            Expr::Bool(true) => self.parse_pair(true_value),
+            Expr::Bool(false) => false_value.map_or(Ok(Expr::Bool(false)), |pair| self.parse_pair(pair)),
             _ => Err(ExprError::Value),
         }
     }
 
     /// Combines one or more boolean arguments
-    fn fold_bools(pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
-        let mut bools = pair.into_inner().map(|arg| match Self::parse_pair(arg)? {
+    fn fold_bools(&self, pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
+        let mut bools = pair.into_inner().map(|arg| match self.parse_pair(arg)? {
             Expr::Bool(b) => Ok(b),
             _ => Err(ExprError::Value),
         });

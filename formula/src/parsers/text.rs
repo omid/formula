@@ -1,5 +1,5 @@
-use super::Result;
-use crate::{Expr, ExprError, Formula, Rule};
+use super::{Evaluator, Result};
+use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
 /// Excel's maximum text length
@@ -7,11 +7,11 @@ const MAX_TEXT_LEN: usize = 32_767;
 /// Excel's maximum number of decimals in `FIXED`
 const MAX_FIXED_DECIMALS: f64 = 127.0;
 
-impl Formula<'_> {
-    pub(crate) fn parse_left(pair: Pair<Rule>) -> Result<Expr> {
+impl Evaluator {
+    pub(crate) fn parse_left(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_chars = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_formula(&mut args)?;
+        let num_chars = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let text = match (text, num_chars) {
             (Expr::String(text), Expr::Number(chars)) if chars >= 0.0 => text.chars().take(chars as usize).collect(),
@@ -20,10 +20,10 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_leftb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_leftb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_bytes = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_formula(&mut args)?;
+        let num_bytes = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let text = match (text, num_bytes) {
             (Expr::String(text), Expr::Number(bytes)) if bytes >= 0.0 => {
@@ -35,10 +35,10 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_right(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_right(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_chars = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_formula(&mut args)?;
+        let num_chars = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let text = match (text, num_chars) {
             (Expr::String(text), Expr::Number(chars)) if chars >= 0.0 => {
@@ -50,10 +50,10 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_rightb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_rightb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_bytes = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_formula(&mut args)?;
+        let num_bytes = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let text = match (text, num_bytes) {
             (Expr::String(text), Expr::Number(bytes)) if bytes >= 0.0 => {
@@ -65,11 +65,11 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_mid(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_mid(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
+        let text = self.get_formula(&mut args)?;
+        let start = self.get_formula(&mut args)?;
+        let len = self.get_formula(&mut args)?;
 
         let text = match (text, start, len) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len)) if start >= 1.0 && len >= 0.0 => {
@@ -80,11 +80,11 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_midb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_midb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
+        let text = self.get_formula(&mut args)?;
+        let start = self.get_formula(&mut args)?;
+        let len = self.get_formula(&mut args)?;
 
         let text = match (text, start, len) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len)) if start >= 1.0 && len >= 0.0 => {
@@ -98,7 +98,7 @@ impl Formula<'_> {
     }
 
     /// `CHAR` covers the single byte range, `UNICHAR` covers every code point
-    pub(crate) fn parse_char(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_char(&self, pair: Pair<Rule>) -> Result<Expr> {
         let max = if pair.as_rule() == Rule::char {
             255.0
         } else {
@@ -106,7 +106,7 @@ impl Formula<'_> {
         };
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::Number(number) if (1.0..=max).contains(&number) => char::from_u32(number as u32)
                 .map(|c| Expr::String(c.to_string()))
                 .ok_or(ExprError::Value),
@@ -114,10 +114,10 @@ impl Formula<'_> {
         }
     }
 
-    pub(crate) fn parse_code(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_code(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::String(text) => text
                 .chars()
                 .next()
@@ -127,9 +127,9 @@ impl Formula<'_> {
         }
     }
 
-    pub(crate) fn parse_concat(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_concat(&self, pair: Pair<Rule>) -> Result<Expr> {
         pair.into_inner()
-            .try_fold(String::new(), |mut text, arg| match Self::parse_pair(arg)? {
+            .try_fold(String::new(), |mut text, arg| match self.parse_pair(arg)? {
                 Expr::String(t) => {
                     text.push_str(&t);
                     Ok(text)
@@ -139,10 +139,10 @@ impl Formula<'_> {
             .map(Expr::String)
     }
 
-    pub(crate) fn parse_exact(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_exact(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text1 = Self::get_formula(&mut args)?;
-        let text2 = Self::get_formula(&mut args)?;
+        let text1 = self.get_formula(&mut args)?;
+        let text2 = self.get_formula(&mut args)?;
 
         match (text1, text2) {
             (Expr::String(text1), Expr::String(text2)) => Ok(Expr::Bool(text1 == text2)),
@@ -150,27 +150,27 @@ impl Formula<'_> {
         }
     }
 
-    pub(crate) fn parse_find(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, false, Self::find_chars)
+    pub(crate) fn parse_find(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, false, Self::find_chars)
     }
 
-    pub(crate) fn parse_findb(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, false, Self::find_bytes)
+    pub(crate) fn parse_findb(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, false, Self::find_bytes)
     }
 
-    pub(crate) fn parse_search(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, true, Self::find_chars)
+    pub(crate) fn parse_search(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, true, Self::find_chars)
     }
 
-    pub(crate) fn parse_searchb(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, true, Self::find_bytes)
+    pub(crate) fn parse_searchb(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, true, Self::find_bytes)
     }
 
-    pub(crate) fn parse_fixed(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_fixed(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let number = Self::get_formula(&mut args)?;
-        let decimals = Self::get_opt_formula_with_default(&mut args, Expr::Number(2.0))?;
-        let no_commas = Self::get_opt_formula_with_default(&mut args, Expr::Bool(false))?;
+        let number = self.get_formula(&mut args)?;
+        let decimals = self.get_opt_formula_with_default(&mut args, Expr::Number(2.0))?;
+        let no_commas = self.get_opt_formula_with_default(&mut args, Expr::Bool(false))?;
 
         let text = match (number, decimals, no_commas) {
             (Expr::Number(number), Expr::Number(decimals), Expr::Bool(no_commas)) if decimals <= MAX_FIXED_DECIMALS => {
@@ -192,26 +192,26 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_len(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::Number(text.chars().count() as f64))
+    pub(crate) fn parse_len(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::Number(text.chars().count() as f64))
     }
 
-    pub(crate) fn parse_lenb(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::Number(text.len() as f64))
+    pub(crate) fn parse_lenb(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::Number(text.len() as f64))
     }
 
-    pub(crate) fn parse_lower(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::String(text.to_lowercase()))
+    pub(crate) fn parse_lower(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::String(text.to_lowercase()))
     }
 
-    pub(crate) fn parse_upper(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::String(text.to_uppercase()))
+    pub(crate) fn parse_upper(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::String(text.to_uppercase()))
     }
 
-    pub(crate) fn parse_rept(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_rept(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let rept = Self::get_formula(&mut args)?;
+        let text = self.get_formula(&mut args)?;
+        let rept = self.get_formula(&mut args)?;
 
         let text = match (text, rept) {
             (Expr::String(text), Expr::Number(rept))
@@ -224,12 +224,12 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_replace(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_replace(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
-        let new_text = Self::get_formula(&mut args)?;
+        let text = self.get_formula(&mut args)?;
+        let start = self.get_formula(&mut args)?;
+        let len = self.get_formula(&mut args)?;
+        let new_text = self.get_formula(&mut args)?;
 
         let text = match (text, start, len, new_text) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text))
@@ -245,12 +245,12 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_replaceb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_replaceb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
-        let new_text = Self::get_formula(&mut args)?;
+        let text = self.get_formula(&mut args)?;
+        let start = self.get_formula(&mut args)?;
+        let len = self.get_formula(&mut args)?;
+        let new_text = self.get_formula(&mut args)?;
 
         let text = match (text, start, len, new_text) {
             (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text))
@@ -271,16 +271,16 @@ impl Formula<'_> {
         Ok(Expr::String(text))
     }
 
-    pub(crate) fn parse_textjoin(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_textjoin(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let delim = Self::get_formula(&mut args)?;
-        let ignore_empty = Self::get_formula(&mut args)?;
+        let delim = self.get_formula(&mut args)?;
+        let ignore_empty = self.get_formula(&mut args)?;
 
         let (Expr::String(delim), Expr::Bool(ignore_empty)) = (delim, ignore_empty) else {
             return Err(ExprError::Value);
         };
         let texts = args
-            .map(|arg| match Self::parse_pair(arg)? {
+            .map(|arg| match self.parse_pair(arg)? {
                 Expr::String(t) => Ok(t),
                 _ => Err(ExprError::Value),
             })
@@ -290,8 +290,8 @@ impl Formula<'_> {
     }
 
     /// Like Excel, only spaces are removed and the inner runs of spaces become one space
-    pub(crate) fn parse_trim(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| {
+    pub(crate) fn parse_trim(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| {
             Expr::String(
                 text.split(' ')
                     .filter(|word| !word.is_empty())
@@ -301,9 +301,9 @@ impl Formula<'_> {
         })
     }
 
-    pub(crate) fn parse_t(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_t(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = match Self::get_formula(&mut args)? {
+        let text = match self.get_formula(&mut args)? {
             Expr::String(text) => text,
             _ => String::new(),
         };
@@ -311,8 +311,8 @@ impl Formula<'_> {
     }
 
     /// Like Excel, the first letter and every letter that follows a non-letter are capitalized
-    pub(crate) fn parse_proper(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| {
+    pub(crate) fn parse_proper(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| {
             let mut proper = String::with_capacity(text.len());
             let mut after_letter = false;
             for c in text.chars() {
@@ -328,20 +328,25 @@ impl Formula<'_> {
     }
 
     /// Evaluates a function that takes one text
-    fn parse_unary_text(pair: Pair<Rule>, f: impl FnOnce(&str) -> Expr) -> Result<Expr> {
+    fn parse_unary_text(&self, pair: Pair<Rule>, f: impl FnOnce(&str) -> Expr) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
+        match self.get_formula(&mut args)? {
             Expr::String(text) => Ok(f(&text)),
             _ => Err(ExprError::Value),
         }
     }
 
-    fn parse_find_text(pair: Pair<Rule>, ignore_case: bool, find: fn(&str, &str, f64) -> Option<f64>) -> Result<Expr> {
+    fn parse_find_text(
+        &self,
+        pair: Pair<Rule>,
+        ignore_case: bool,
+        find: fn(&str, &str, f64) -> Option<f64>,
+    ) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let find_text = Self::get_formula(&mut args)?;
-        let within_text = Self::get_formula(&mut args)?;
-        let start_num = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let find_text = self.get_formula(&mut args)?;
+        let within_text = self.get_formula(&mut args)?;
+        let start_num = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let index = match (find_text, within_text, start_num) {
             (Expr::String(find_text), Expr::String(within_text), Expr::Number(start_num)) => {

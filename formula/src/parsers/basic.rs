@@ -1,16 +1,16 @@
-use super::Result;
-use crate::{Expr, Formula, Rule};
+use super::{Evaluator, Result};
+use crate::{Expr, Rule};
 use pest::iterators::Pair;
 
-impl Formula<'_> {
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_num(pair: Pair<Rule>) -> Result<Expr> {
+impl Evaluator {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_num(&self, pair: Pair<Rule>) -> Result<Expr> {
         let number = pair.as_str().trim().parse().unwrap();
         Ok(Expr::Number(number))
     }
 
-    #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn parse_string(pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_string(&self, pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::String(Self::unescape(pair.into_inner().as_str())))
     }
 
@@ -42,18 +42,18 @@ impl Formula<'_> {
         string
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_true(_pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_true(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Bool(true))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_false(_pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_false(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Bool(false))
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_array(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_array(&self, pair: Pair<Rule>) -> Result<Expr> {
         let inner = pair.into_inner();
 
         let mut table = Vec::new();
@@ -70,7 +70,7 @@ impl Formula<'_> {
                 }
                 _ => {
                     // An error element doesn't make the whole array an error
-                    row.push(Self::parse_pair(ipair).unwrap_or_else(Expr::Error));
+                    row.push(self.parse_pair(ipair).unwrap_or_else(Expr::Error));
                 }
             }
         }

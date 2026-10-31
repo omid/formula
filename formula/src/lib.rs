@@ -77,6 +77,7 @@ pub mod error;
 mod parsers;
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use parsers::Evaluator;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 
@@ -201,7 +202,7 @@ impl<'a> Formula<'a> {
         if let Some(pair) = pairs
             .clone()
             .flatten()
-            .find(|pair| Self::evaluator(pair.as_rule()).is_none())
+            .find(|pair| Evaluator::dispatch(pair.as_rule()).is_none())
         {
             return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())));
         }
@@ -219,16 +220,21 @@ impl<'a> Formula<'a> {
     /// Doesn't return `Err`, `Formula::new` already rejects the formulas that can't be evaluated.
     /// Spreadsheet errors like `#DIV/0!` are a valid result, `Ok(Expr::Error(_))`.
     pub fn parse(self) -> Result<Expr> {
-        Ok(Self::parse_pair(self.pairs).unwrap_or_else(Expr::Error))
+        Ok(Evaluator.parse_pair(self.pairs).unwrap_or_else(Expr::Error))
     }
+}
 
-    fn parse_pair(pair: Pair<Rule>) -> parsers::Result<Expr> {
+/// A function that evaluates one rule
+type Evaluate = fn(&Evaluator, Pair<Rule>) -> parsers::Result<Expr>;
+
+impl Evaluator {
+    fn parse_pair(&self, pair: Pair<Rule>) -> parsers::Result<Expr> {
         // Picking the function first and calling it once keeps this frame small,
         // so deeply nested formulas don't overflow the stack in debug builds
         let evaluate =
-            Self::evaluator(pair.as_rule()).expect("`Formula::new` rejects functions that are not implemented");
+            Self::dispatch(pair.as_rule()).expect("`Formula::new` rejects functions that are not implemented");
 
-        match evaluate(pair)? {
+        match evaluate(self, pair)? {
             // Spreadsheet errors stop the evaluation until a function handles them
             Expr::Error(error) => Err(error),
             value => Ok(value),
@@ -237,9 +243,9 @@ impl<'a> Formula<'a> {
 
     /// The function that evaluates `rule`, `None` for functions that are not implemented yet
     #[allow(clippy::too_many_lines)]
-    fn evaluator(rule: Rule) -> Option<fn(Pair<Rule>) -> parsers::Result<Expr>> {
+    fn dispatch(rule: Rule) -> Option<Evaluate> {
         #[allow(clippy::match_same_arms)]
-        let evaluate: fn(Pair<Rule>) -> parsers::Result<Expr> = match rule {
+        let evaluate: Evaluate = match rule {
             // Operators
             Rule::add => Self::parse_add,
             Rule::sub => Self::parse_sub,
@@ -471,7 +477,7 @@ impl<'a> Formula<'a> {
             | Rule::math_functions
             | Rule::web_functions
             | Rule::WHITESPACE
-            | Rule::EOI => |_| unreachable!("parts of other rules aren't evaluated on their own"),
+            | Rule::EOI => |_, _| unreachable!("parts of other rules aren't evaluated on their own"),
         };
         Some(evaluate)
     }
