@@ -1,4 +1,4 @@
-use super::{Halt, Result};
+use super::Result;
 use crate::{Expr, Formula, Rule};
 use pest::iterators::Pair;
 
@@ -70,11 +70,7 @@ impl Formula<'_> {
                 }
                 _ => {
                     // An error element doesn't make the whole array an error
-                    let value = match Self::parse_pair(ipair) {
-                        Err(Halt::Value(error)) => Expr::Error(error),
-                        value => value?,
-                    };
-                    row.push(value);
+                    row.push(Self::parse_pair(ipair).unwrap_or_else(Expr::Error));
                 }
             }
         }
@@ -133,6 +129,16 @@ mod tests {
         assert_eq!(
             value,
             Expr::Array(vec![Expr::Number(1.0), Expr::Error(ExprError::DivisionByZero)])
+        );
+
+        let formula = Formula::new("={F.ADD('a', 1); 2}").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(
+            value,
+            Expr::Array(vec![
+                Expr::Array(vec![Expr::Error(ExprError::Value)]),
+                Expr::Array(vec![Expr::Number(2.0)])
+            ])
         );
 
         let formula = Formula::new("={}").unwrap();

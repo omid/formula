@@ -1,7 +1,4 @@
-use super::{
-    Result,
-    helper::{number, parser_error},
-};
+use super::{Result, helper::number};
 use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 use std::cmp::Ordering;
@@ -69,10 +66,9 @@ impl Formula<'_> {
     /// - numbers that only differ by floating point noise (e.g. `0.1 + 0.2` and `0.3`) are equal
     /// - texts are compared case-insensitively, `EXACT` is the case-sensitive comparison
     fn parse_comparison(pair: Pair<Rule>, check: fn(Ordering) -> bool) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, rule)?;
-        let operand2 = Self::get_formula(&mut args, rule)?;
+        let operand1 = Self::get_formula(&mut args)?;
+        let operand2 = Self::get_formula(&mut args)?;
 
         let ordering = match (&operand1, &operand2) {
             (Expr::Number(n1), Expr::Number(n2)) if (n1 - n2).abs() <= 1e-15 * n1.abs().max(n2.abs()) => {
@@ -86,7 +82,7 @@ impl Formula<'_> {
             | (Expr::Bool(_), Expr::Bool(_)) => operand1.partial_cmp(&operand2),
             _ => None,
         };
-        ordering.map(|o| Expr::Bool(check(o))).ok_or_else(|| parser_error(rule))
+        ordering.map(|o| Expr::Bool(check(o))).ok_or(ExprError::Value)
     }
 }
 
@@ -155,7 +151,7 @@ mod tests {
         assert_eq!(value, Expr::Bool(true));
 
         let formula = Formula::new("=F.EQ(1,'1')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=F.GT('a','a')").unwrap();
         let value = formula.parse().unwrap();
@@ -220,6 +216,11 @@ mod tests {
         let formula = Formula::new("=F.ADD(F.DIV(1,0),1)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        // the first error wins
+        let formula = Formula::new("=F.ADD(F.ADD('a',1),F.DIV(1,0))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=F.EQ(NA(),1)").unwrap();
         let value = formula.parse().unwrap();

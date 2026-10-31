@@ -74,11 +74,12 @@ mod tests {
                 Expr::Bool(true),
                 Expr::Null,
                 Expr::Error(ExprError::DivisionByZero),
+                Expr::Error(ExprError::Value),
             ]),
         ]);
         assert_eq!(
             array_to_string(array),
-            r##"["a\"b\\c\u000a",1.5,null,[true,null,"#DIV/0!"]]"##
+            r##"["a\"b\\c\u000a",1.5,null,[true,null,"#DIV/0!","#VALUE!"]]"##
         );
     }
 }

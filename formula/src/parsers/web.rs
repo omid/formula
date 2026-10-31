@@ -1,59 +1,52 @@
-use super::{Result, helper::parser_error};
-use crate::{Expr, Formula, Rule, error::Error};
+use super::Result;
+use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
 impl Formula<'_> {
     pub(crate) fn parse_encodeurl(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args, rule)? {
+        match Self::get_formula(&mut args)? {
             Expr::String(url) => Ok(Expr::String(encode(&url).into_owned())),
-            _ => Err(parser_error(rule)),
+            _ => Err(ExprError::Value),
         }
     }
 
-    #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn parse_filterxml(pair: Pair<Rule>) -> Result<Expr> {
-        // let rule_name = format!("{:?}", &pair.as_rule());
-        // let mut args = pair.into_inner();
-        // let xml = Self::get_formula(&mut args, &rule_name)?;
-        // let xpath = Self::get_formula(&mut args, &rule_name)?;
-        //
-        // let body = match (xml, xpath) {
-        //     (Expr::String(xml), Expr::String(xpath)) => {
-        //         let doc = parser::parse(&xml)?;
-        //         evaluate_xpath(&doc.as_document(), &xpath)?.into_string()
-        //     },
-        //     _ => return Err(Error::Parser(rule_name).into()),
-        // };
-        // Ok(Expr::String(body))
-        Err(Error::NotImplemented(format!("{:?}", pair.as_rule())).into())
-    }
+    // TODO a draft, `Formula::new` rejects it as not implemented yet
+    // pub(crate) fn parse_filterxml(pair: Pair<Rule>) -> Result<Expr> {
+    //     let rule_name = format!("{:?}", &pair.as_rule());
+    //     let mut args = pair.into_inner();
+    //     let xml = Self::get_formula(&mut args, &rule_name)?;
+    //     let xpath = Self::get_formula(&mut args, &rule_name)?;
+    //
+    //     let body = match (xml, xpath) {
+    //         (Expr::String(xml), Expr::String(xpath)) => {
+    //             let doc = parser::parse(&xml)?;
+    //             evaluate_xpath(&doc.as_document(), &xpath)?.into_string()
+    //         },
+    //         _ => return Err(Error::Parser(rule_name).into()),
+    //     };
+    //     Ok(Expr::String(body))
+    // }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn parse_webservice(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args, rule)? {
-            Expr::String(url) => Self::web_request(&url, rule).map(Expr::String),
-            _ => Err(parser_error(rule)),
+        match Self::get_formula(&mut args)? {
+            Expr::String(url) => Self::web_request(&url).map(Expr::String),
+            _ => Err(ExprError::Value),
         }
     }
 
-    /// HTTP error responses (4xx, 5xx) are errors too, instead of returning the error page as the value
+    /// Like Excel, failed requests are `#VALUE!`, also HTTP error responses (4xx, 5xx) instead of the error page
     #[cfg(not(target_arch = "wasm32"))]
-    fn web_request(url: &str, rule: Rule) -> Result<String> {
+    fn web_request(url: &str) -> Result<String> {
         reqwest::blocking::get(url)
             .and_then(reqwest::blocking::Response::error_for_status)
             .and_then(reqwest::blocking::Response::text)
-            .map_err(|_| parser_error(rule))
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn web_request(_url: &str, rule: Rule) -> Result<String> {
-        Err(Error::NotImplemented(format!("{rule:?}")).into())
+            .map_err(|_| ExprError::Value)
     }
 }
 
@@ -78,8 +71,8 @@ mod tests {
         // let value = formula.parse().unwrap();
         // assert_eq!(value, Expr::String("test".to_string()));
 
-        let formula = Formula::new("=FILTERXML('<a/>', '/a')").unwrap();
-        assert!(matches!(formula.parse(), Err(Error::NotImplemented(_))));
+        let formula = Formula::new("=FILTERXML('<a/>', '/a')");
+        assert!(matches!(formula, Err(crate::error::Error::NotImplemented(_))));
     }
 
     #[test]
@@ -90,13 +83,19 @@ mod tests {
         assert_eq!(value, Expr::String("test".to_string()));
 
         let formula = format!("=WEBSERVICE('{}')", serve_once("404 Not Found", "404: Not Found"));
-        assert!(Formula::new(&formula).unwrap().parse().is_err());
+        assert_eq!(
+            Formula::new(&formula).unwrap().parse().unwrap(),
+            Expr::Error(ExprError::Value)
+        );
 
         let formula = format!("=WEBSERVICE('{}')", serve_once("500 Internal Server Error", "error"));
-        assert!(Formula::new(&formula).unwrap().parse().is_err());
+        assert_eq!(
+            Formula::new(&formula).unwrap().parse().unwrap(),
+            Expr::Error(ExprError::Value)
+        );
 
         let formula = Formula::new("=WEBSERVICE('not a url')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
     }
 
     /// Answers one HTTP request on a local port with `status` and `body`, and returns its URL

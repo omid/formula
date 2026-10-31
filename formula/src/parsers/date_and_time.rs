@@ -1,5 +1,5 @@
-use super::{Result, helper::parser_error};
-use crate::{Expr, ExprError, Formula, Rule, error::Error};
+use super::Result;
+use crate::{Expr, ExprError, Formula, Rule};
 use chrono::{Datelike, Months, NaiveDate, NaiveTime, TimeDelta, Timelike, Utc, Weekday};
 use pest::iterators::Pair;
 
@@ -19,9 +19,8 @@ impl Formula<'_> {
 
     /// ref: <https://support.microsoft.com/en-us/office/weekday-function-60e44483-2ed1-439f-8bd0-e404c190949a>
     pub(crate) fn parse_weekday(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args, rule)?, rule)?;
+        let date = Self::to_date(Self::get_formula(&mut args)?)?;
         let return_type = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
 
         let weekday = date.weekday();
@@ -35,37 +34,36 @@ impl Formula<'_> {
                 14 => weekday.days_since(Weekday::Thu) + 1,
                 15 => weekday.days_since(Weekday::Fri) + 1,
                 16 => weekday.days_since(Weekday::Sat) + 1,
-                _ => return Err(parser_error(rule)),
+                _ => return Ok(Expr::Error(ExprError::Number)),
             },
-            _ => return Err(parser_error(rule)),
+            _ => return Err(ExprError::Value),
         };
         Ok(Expr::Number(f64::from(weekday)))
     }
 
-    #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn parse_weeknum(pair: Pair<Rule>) -> Result<Expr> {
-        // let rule_name = format!("{:?}", &pair.as_rule());
-        // let mut args = pair.into_inner();
-        // let date = Self::get_formula(&mut args, &rule_name)?;
-        // let return_type = args.next().map(|v| Self::parse_pair(v)?).unwrap_or(Expr::Number(1.0));
-        //
-        // let start_week = match return_type {
-        //     Expr::Number(16.0) => Weekday::Sat,
-        //     Expr::Number(1.0) | Expr::Number(17.0) => Weekday::Sun,
-        //     Expr::Number(2.0) | Expr::Number(11.0) | Expr::Number(21.0)  => Weekday::Mon,
-        //     Expr::Number(12.0)  => Weekday::Tue,
-        //     Expr::Number(13.0)  => Weekday::Wed,
-        //     Expr::Number(14.0)  => Weekday::Thu,
-        //     Expr::Number(15.0)  => Weekday::Fri,
-        //     _ => return Err(Error::Parser(rule_name).into()),
-        // };
-        // let week = match date {
-        //     Expr::Date(date) =>  date.week(start_week),
-        //     _ => return Err(Error::Parser(rule_name).into()),
-        // };
-        // Ok(Expr::Number(week as i32 as f64))
-        Err(Error::NotImplemented(format!("{:?}", pair.as_rule())).into())
-    }
+    // TODO a draft, `Formula::new` rejects it as not implemented yet
+    // pub(crate) fn parse_weeknum(pair: Pair<Rule>) -> Result<Expr> {
+    //     let rule_name = format!("{:?}", &pair.as_rule());
+    //     let mut args = pair.into_inner();
+    //     let date = Self::get_formula(&mut args, &rule_name)?;
+    //     let return_type = args.next().map(|v| Self::parse_pair(v)?).unwrap_or(Expr::Number(1.0));
+    //
+    //     let start_week = match return_type {
+    //         Expr::Number(16.0) => Weekday::Sat,
+    //         Expr::Number(1.0) | Expr::Number(17.0) => Weekday::Sun,
+    //         Expr::Number(2.0) | Expr::Number(11.0) | Expr::Number(21.0)  => Weekday::Mon,
+    //         Expr::Number(12.0)  => Weekday::Tue,
+    //         Expr::Number(13.0)  => Weekday::Wed,
+    //         Expr::Number(14.0)  => Weekday::Thu,
+    //         Expr::Number(15.0)  => Weekday::Fri,
+    //         _ => return Err(Error::Parser(rule_name).into()),
+    //     };
+    //     let week = match date {
+    //         Expr::Date(date) =>  date.week(start_week),
+    //         _ => return Err(Error::Parser(rule_name).into()),
+    //     };
+    //     Ok(Expr::Number(week as i32 as f64))
+    // }
 
     pub(crate) fn parse_isoweeknum(pair: Pair<Rule>) -> Result<Expr> {
         Self::parse_date_part(pair, |date| f64::from(date.iso_week().week()))
@@ -84,67 +82,59 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_timevalue(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args, rule)? {
-            Expr::String(timestring) => Ok(Expr::Time(Self::timestring_to_naivetime(&timestring, rule)?)),
-            _ => Err(parser_error(rule)),
+        match Self::get_formula(&mut args)? {
+            Expr::String(timestring) => Ok(Expr::Time(Self::timestring_to_naivetime(&timestring)?)),
+            _ => Err(ExprError::Value),
         }
     }
 
     pub(crate) fn parse_datevalue(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args, rule)? {
-            Expr::String(datestring) => Ok(Expr::Date(Self::datestring_to_naivedate(&datestring, rule)?)),
-            _ => Err(parser_error(rule)),
+        match Self::get_formula(&mut args)? {
+            Expr::String(datestring) => Ok(Expr::Date(Self::datestring_to_naivedate(&datestring)?)),
+            _ => Err(ExprError::Value),
         }
     }
 
     pub(crate) fn parse_eomonth(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args, rule)?, rule)?;
-        let num = Self::get_formula(&mut args, rule)?;
-
-        let date = match num {
-            // the day before the first day of the next month
-            Expr::Number(num) => date
-                .with_day(1)
-                .and_then(|date| Self::shift_months(date, num))
-                .and_then(|date| date.checked_add_months(Months::new(1)))
-                .and_then(|date| date.pred_opt()),
-            _ => None,
+        let date = Self::to_date(Self::get_formula(&mut args)?)?;
+        let Expr::Number(num) = Self::get_formula(&mut args)? else {
+            return Err(ExprError::Value);
         };
-        date.map(Expr::Date).ok_or_else(|| parser_error(rule))
+
+        // the day before the first day of the next month
+        let date = date
+            .with_day(1)
+            .and_then(|date| Self::shift_months(date, num))
+            .and_then(|date| date.checked_add_months(Months::new(1)))
+            .and_then(|date| date.pred_opt());
+        Ok(date.map_or(Expr::Error(ExprError::Number), Expr::Date))
     }
 
     pub(crate) fn parse_edate(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args, rule)?, rule)?;
-        let num = Self::get_formula(&mut args, rule)?;
-
-        let date = match num {
-            Expr::Number(num) => Self::shift_months(date, num),
-            _ => None,
+        let date = Self::to_date(Self::get_formula(&mut args)?)?;
+        let Expr::Number(num) = Self::get_formula(&mut args)? else {
+            return Err(ExprError::Value);
         };
-        date.map(Expr::Date).ok_or_else(|| parser_error(rule))
+
+        Ok(Self::shift_months(date, num).map_or(Expr::Error(ExprError::Number), Expr::Date))
     }
 
     pub(crate) fn parse_days(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let end_date = Self::get_formula(&mut args, rule)?;
-        let start_date = Self::get_formula(&mut args, rule)?;
+        let end_date = Self::get_formula(&mut args)?;
+        let start_date = Self::get_formula(&mut args)?;
 
         let days = match (end_date, start_date) {
             (Expr::Number(end_date), Expr::Number(start_date)) => end_date - start_date,
             (end_date, start_date) => {
-                let end_date = Self::to_date(end_date, rule)?;
-                let start_date = Self::to_date(start_date, rule)?;
+                let end_date = Self::to_date(end_date)?;
+                let start_date = Self::to_date(start_date)?;
                 end_date.signed_duration_since(start_date).num_days() as f64
             }
         };
@@ -165,14 +155,13 @@ impl Formula<'_> {
 
     /// Like Excel, the parts overflow into each other (e.g. 90 minutes) and the time wraps around midnight
     pub(crate) fn parse_time(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let hour = Self::get_formula(&mut args, rule)?;
-        let minute = Self::get_formula(&mut args, rule)?;
-        let second = Self::get_formula(&mut args, rule)?;
+        let hour = Self::get_formula(&mut args)?;
+        let minute = Self::get_formula(&mut args)?;
+        let second = Self::get_formula(&mut args)?;
 
         let (Expr::Number(hour), Expr::Number(minute), Expr::Number(second)) = (hour, minute, second) else {
-            return Err(parser_error(rule));
+            return Err(ExprError::Value);
         };
         let seconds = hour.trunc() * 3600.0 + minute.trunc() * 60.0 + second.trunc();
         if seconds < 0.0 || [hour, minute, second].iter().any(|part| *part > MAX_TIME_PART) {
@@ -181,20 +170,19 @@ impl Formula<'_> {
 
         NaiveTime::from_num_seconds_from_midnight_opt((seconds % 86_400.0) as u32, 0)
             .map(Expr::Time)
-            .ok_or_else(|| parser_error(rule))
+            .ok_or(ExprError::Value)
     }
 
     /// Like Excel, months and days overflow into the next or previous year and month,
     /// e.g. `DATE(2020, 13, 1)` is 2021-01-01 and `DATE(2020, 1, 0)` is 2019-12-31
     pub(crate) fn parse_date(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let year = Self::get_formula(&mut args, rule)?;
-        let month = Self::get_formula(&mut args, rule)?;
-        let day = Self::get_formula(&mut args, rule)?;
+        let year = Self::get_formula(&mut args)?;
+        let month = Self::get_formula(&mut args)?;
+        let day = Self::get_formula(&mut args)?;
 
         let (Expr::Number(year), Expr::Number(month), Expr::Number(day)) = (year, month, day) else {
-            return Err(parser_error(rule));
+            return Err(ExprError::Value);
         };
         let date = i32::try_from(year.trunc() as i64)
             .ok()
@@ -206,46 +194,44 @@ impl Formula<'_> {
 
     /// Evaluates a function that takes one date
     fn parse_date_part(pair: Pair<Rule>, part: impl FnOnce(NaiveDate) -> f64) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let date = Self::to_date(Self::get_formula(&mut args, rule)?, rule)?;
+        let date = Self::to_date(Self::get_formula(&mut args)?)?;
         Ok(Expr::Number(part(date)))
     }
 
     /// Evaluates a function that takes one time
     fn parse_time_part(pair: Pair<Rule>, part: impl FnOnce(NaiveTime) -> f64) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
 
-        let time = match Self::get_formula(&mut args, rule)? {
+        let time = match Self::get_formula(&mut args)? {
             Expr::Time(time) => time,
             Expr::Datetime(datetime) => datetime.time(),
-            Expr::String(time) => Self::timestring_to_naivetime(&time, rule)?,
-            _ => return Err(parser_error(rule)),
+            Expr::String(time) => Self::timestring_to_naivetime(&time)?,
+            _ => return Err(ExprError::Value),
         };
         Ok(Expr::Number(part(time)))
     }
 
     /// Accepts a date, a datetime or a `month/day/year` text
-    fn to_date(date: Expr, rule: Rule) -> Result<NaiveDate> {
+    fn to_date(date: Expr) -> Result<NaiveDate> {
         match date {
             Expr::Date(date) => Ok(date),
             Expr::Datetime(datetime) => Ok(datetime.date_naive()),
-            Expr::String(date) => Self::datestring_to_naivedate(&date, rule),
-            _ => Err(parser_error(rule)),
+            Expr::String(date) => Self::datestring_to_naivedate(&date),
+            _ => Err(ExprError::Value),
         }
     }
 
-    fn datestring_to_naivedate(datestring: &str, rule: Rule) -> Result<NaiveDate> {
-        NaiveDate::parse_from_str(datestring, "%m/%d/%Y").map_err(|_| parser_error(rule))
+    fn datestring_to_naivedate(datestring: &str) -> Result<NaiveDate> {
+        NaiveDate::parse_from_str(datestring, "%m/%d/%Y").map_err(|_| ExprError::Value)
     }
 
     /// Accepts `hour:minute:second` and `hour:minute`
-    fn timestring_to_naivetime(timestring: &str, rule: Rule) -> Result<NaiveTime> {
+    fn timestring_to_naivetime(timestring: &str) -> Result<NaiveTime> {
         let timestring = timestring.trim_matches('\'').trim_matches('"');
         NaiveTime::parse_from_str(timestring, "%H:%M:%S")
             .or_else(|_| NaiveTime::parse_from_str(timestring, "%H:%M"))
-            .map_err(|_| parser_error(rule))
+            .map_err(|_| ExprError::Value)
     }
 
     /// Moves `date` by whole `months`, keeping the day within the target month like Excel
@@ -356,10 +342,10 @@ mod tests {
         assert_eq!(value, Expr::Number(2.0));
 
         let formula = Formula::new("=YEAR('2020')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=DATEVALUE('1/2/2020/9')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=YEAR(NOW())").unwrap();
         let value = formula.parse().unwrap();
@@ -394,7 +380,7 @@ mod tests {
         assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=TIME('1',0,0)").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=DATE(2020,13,1)").unwrap();
         let value = formula.parse().unwrap();
@@ -437,7 +423,7 @@ mod tests {
         assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=DATE('2020',1,1)").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=TIMEVALUE('02:30:00')").unwrap();
         let value = formula.parse().unwrap();
@@ -461,13 +447,13 @@ mod tests {
         assert_eq!(value, Expr::Number(5.0));
 
         let formula = Formula::new("=WEEKDAY(DATE(2020,1,1), 4)").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=NOW()").unwrap();
         formula.parse().unwrap();
 
-        let formula = Formula::new("=WEEKNUM(DATE(2020,1,1))").unwrap();
-        assert!(matches!(formula.parse(), Err(Error::NotImplemented(_))));
+        let formula = Formula::new("=WEEKNUM(DATE(2020,1,1))");
+        assert!(matches!(formula, Err(crate::error::Error::NotImplemented(_))));
 
         let formula = Formula::new("=EDATE(DATE(2020,1,15),-1)").unwrap();
         let value = formula.parse().unwrap();
@@ -482,13 +468,22 @@ mod tests {
         assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2020, 1, 31).unwrap()));
 
         let formula = Formula::new("=EDATE(DATE(2020,1,15),1e20)").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=EOMONTH(DATE(2020,1,15),-1e20)").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=EDATE(DATE(2020,1,15),'1')").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=EOMONTH(DATE(2020,1,15),TRUE)").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=TIMEVALUE('25:00')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=DATEVALUE('13/1/2020')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=WEEKDAY('1/1/2020')").unwrap();
         let value = formula.parse().unwrap();
@@ -499,10 +494,10 @@ mod tests {
         assert_eq!(value, Expr::Number(5.0));
 
         let formula = Formula::new("=DAYS(DATE(2020,1,6), TRUE)").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=WEEKDAY(DATE(2020,1,1), 'a')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=MONTH(TODAY())").unwrap();
         let value = formula.parse().unwrap();

@@ -77,7 +77,6 @@ pub mod error;
 mod parsers;
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
-use parsers::Halt;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 
@@ -122,6 +121,8 @@ pub enum Expr {
 pub enum ExprError {
     /// `#DIV/0!`
     DivisionByZero,
+    /// `#VALUE!`, e.g. an argument of the wrong type
+    Value,
     /// `#NUM!`, e.g. the square root of a negative number or a result that is too large
     Number,
     /// `#N/A`
@@ -132,6 +133,7 @@ impl std::fmt::Display for ExprError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let error = match self {
             Self::DivisionByZero => "#DIV/0!",
+            Self::Value => "#VALUE!",
             Self::Number => "#NUM!",
             Self::NotAvailable => "#N/A",
         };
@@ -188,11 +190,23 @@ impl<'a> Formula<'a> {
     ///
     /// # Errors
     ///
-    /// Will return `Err` if the formula is not valid, or if it nests functions more than 64 levels deep like Excel.
+    /// Will return `Err` if the formula is not valid, uses a function that is not implemented yet,
+    /// or nests functions more than 64 levels deep like Excel.
     pub fn new(formula: &'a str) -> Result<Self> {
         check_nesting(formula)?;
-        let pairs = FormulaInner::parse(Rule::root, formula)
-            .map_err(|_| error::Error::Parser("root".to_string()))?
+        let mut pairs =
+            FormulaInner::parse(Rule::root, formula).map_err(|_| error::Error::Parser("root".to_string()))?;
+
+        // also in branches that might not be evaluated, so a formula fails or not regardless of its values
+        if let Some(pair) = pairs
+            .clone()
+            .flatten()
+            .find(|pair| Self::evaluator(pair.as_rule()).is_none())
+        {
+            return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())));
+        }
+
+        let pairs = pairs
             .next()
             .ok_or_else(|| error::Error::Parser("No formula found".to_string()))?;
         Ok(Self { pairs })
@@ -202,22 +216,30 @@ impl<'a> Formula<'a> {
     ///
     /// # Errors
     ///
-    /// Will return `Err` if the formula is not valid or the functions are not implemented.
+    /// Doesn't return `Err`, `Formula::new` already rejects the formulas that can't be evaluated.
     /// Spreadsheet errors like `#DIV/0!` are a valid result, `Ok(Expr::Error(_))`.
     pub fn parse(self) -> Result<Expr> {
-        match Self::parse_pair(self.pairs) {
-            Ok(value) => Ok(value),
-            Err(Halt::Value(error)) => Ok(Expr::Error(error)),
-            Err(Halt::Error(error)) => Err(error),
-        }
+        Ok(Self::parse_pair(self.pairs).unwrap_or_else(Expr::Error))
     }
 
-    #[allow(clippy::too_many_lines)]
     fn parse_pair(pair: Pair<Rule>) -> parsers::Result<Expr> {
         // Picking the function first and calling it once keeps this frame small,
         // so deeply nested formulas don't overflow the stack in debug builds
+        let evaluate =
+            Self::evaluator(pair.as_rule()).expect("`Formula::new` rejects functions that are not implemented");
+
+        match evaluate(pair)? {
+            // Spreadsheet errors stop the evaluation until a function handles them
+            Expr::Error(error) => Err(error),
+            value => Ok(value),
+        }
+    }
+
+    /// The function that evaluates `rule`, `None` for functions that are not implemented yet
+    #[allow(clippy::too_many_lines)]
+    fn evaluator(rule: Rule) -> Option<fn(Pair<Rule>) -> parsers::Result<Expr>> {
         #[allow(clippy::match_same_arms)]
-        let parse: fn(Pair<Rule>) -> parsers::Result<Expr> = match pair.as_rule() {
+        let evaluate: fn(Pair<Rule>) -> parsers::Result<Expr> = match rule {
             // Operators
             Rule::add => Self::parse_add,
             Rule::sub => Self::parse_sub,
@@ -248,18 +270,18 @@ impl<'a> Formula<'a> {
             Rule::minute => Self::parse_minute,
             Rule::second => Self::parse_second,
             Rule::isoweeknum => Self::parse_isoweeknum,
-            Rule::weeknum => Self::parse_weeknum,
             Rule::weekday => Self::parse_weekday,
             Rule::now => Self::parse_now,
             Rule::today => Self::parse_today,
             // TODO remaining date and time functions
-            Rule::networkdays
+            Rule::weeknum
+            | Rule::networkdays
             | Rule::networkdaysintl
             | Rule::workday
             | Rule::workdayintl
             | Rule::yearfrac
             | Rule::days360
-            | Rule::datediff => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::datediff => return None,
 
             // Text functions
             Rule::left => Self::parse_left,
@@ -304,7 +326,7 @@ impl<'a> Formula<'a> {
             | Rule::textsplit
             | Rule::value
             | Rule::valuetotext
-            | Rule::bahttext => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::bahttext => return None,
             // Engineering functions
             // Financial functions
             // Logical functions
@@ -326,7 +348,7 @@ impl<'a> Formula<'a> {
             | Rule::map
             | Rule::lambda
             | Rule::switch
-            | Rule::ifs => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::ifs => return None,
             // Math functions
             Rule::abs => Self::parse_abs,
             Rule::acos => Self::parse_acos,
@@ -410,13 +432,17 @@ impl<'a> Formula<'a> {
             | Rule::sumx2my2
             | Rule::sumx2py2
             | Rule::sumxmy2
-            | Rule::trunc => return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())).into()),
+            | Rule::trunc => return None,
 
             // Statistical functions
             // Web functions
             Rule::encodeurl => Self::parse_encodeurl,
-            Rule::filterxml => Self::parse_filterxml,
+            #[cfg(not(target_arch = "wasm32"))]
             Rule::webservice => Self::parse_webservice,
+            // TODO remaining web functions
+            #[cfg(target_arch = "wasm32")]
+            Rule::webservice => return None,
+            Rule::filterxml => return None,
 
             // Basic types
             Rule::num => Self::parse_num,
@@ -445,17 +471,9 @@ impl<'a> Formula<'a> {
             | Rule::math_functions
             | Rule::web_functions
             | Rule::WHITESPACE
-            | Rule::EOI => {
-                unreachable!()
-            }
+            | Rule::EOI => |_| unreachable!("parts of other rules aren't evaluated on their own"),
         };
-        let res = parse(pair)?;
-
-        // Spreadsheet errors stop the evaluation until a function handles them
-        match res {
-            Expr::Error(error) => Err(Halt::Value(error)),
-            res => Ok(res),
-        }
+        Some(evaluate)
     }
 }
 
@@ -496,9 +514,13 @@ mod tests {
             "=SWITCH(1, 1, 'a', 2, 'b', 'c')",
             "=WORKDAY(DATE(2020,1,1), 5)",
             "=WORKDAY.INTL(DATE(2020,1,1), 5)",
+            "=FILTERXML('<a/>', '/a')",
         ] {
-            let formula = Formula::new(formula).unwrap();
-            assert!(matches!(formula.parse(), Err(error::Error::NotImplemented(_))));
+            assert!(matches!(Formula::new(formula), Err(error::Error::NotImplemented(_))));
         }
+
+        // rejected even in a branch that is not evaluated, and named after the function
+        let formula = Formula::new("=IF(TRUE, 1, F.ADD(1, WEEKNUM(DATE(2020,1,1))))");
+        assert!(matches!(formula, Err(error::Error::NotImplemented(name)) if name == "weeknum"));
     }
 }

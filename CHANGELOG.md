@@ -16,23 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MSRV is now Rust 1.99, and the crates use the 2024 edition
 - Upgraded dependencies, and replaced `rand` with `getrandom`
-- Invalid input in many functions returns an error instead of panicking, e.g. `EDATE`, `EOMONTH`, `RIGHT`, `MID`, `REPLACE`, `FINDB`, `SEARCHB`, `YEAR('2020')`, `REPT` with a huge count
-- `WEEKNUM` and `FILTERXML` return `Error::NotImplemented` instead of panicking
+- Invalid input in many functions returns a spreadsheet error instead of panicking, e.g. `EDATE`, `EOMONTH`, `RIGHT`, `MID`, `REPLACE`, `FINDB`, `SEARCHB`, `YEAR('2020')`, `REPT` with a huge count
+- `WEEKNUM` and `FILTERXML` are rejected as not implemented instead of panicking
 - Text after a complete formula is an error, e.g. `=1+1` used to return `1`
 - Strings can contain the other quote character, e.g. `="it's"`
 - **Breaking:** spreadsheet errors are `Expr::Error(ExprError)` values (`#DIV/0!`, `#NUM!`, `#N/A`) instead of `Expr::Null`.
   Like Excel, they pass through the functions that use them, until `IFERROR`, `IFNA` or the result
+- **Breaking:** like Excel, arguments of the wrong type and invalid values are `#VALUE!` instead of `Error::Parser`,
+  e.g. `F.ADD('a', 1)` or `LEFT('a', -1)`. `Formula::parse` doesn't return `Err` anymore
+- **Breaking:** `Formula::new` returns `Error::NotImplemented` for functions that are not implemented yet,
+  even in a branch that wouldn't be evaluated, instead of `Formula::parse` returning it
 - Division by zero is `#DIV/0!`, and results that are not finite numbers (e.g. `SQRT(-1)`, `LN(0)`) are `#NUM!`
 - `F.EQ`, `F.NE` and the other comparisons agree with each other, and ignore floating point noise like Excel
 - Text comparisons are case-insensitive like Excel, e.g. `F.EQ('a', 'A')` is `TRUE`. `EXACT` stays case-sensitive
 - `IF` only evaluates the selected branch, and returns `FALSE` when the false branch is missing
 - `IFERROR` catches spreadsheet errors, `IFNA` only catches `#N/A` and returns the value otherwise
-- `WEEKDAY` uses Excel's numbering and supports the return type argument
+- `WEEKDAY` uses Excel's numbering and supports the return type argument, an invalid one is `#NUM!`
 - Excel compatible `MOD`, `FIXED`, `TRIM`, `PROPER`, `TEXTJOIN`, `CHAR`, `UNICHAR`, `CODE`, `UNICODE`, `FIND` and `SEARCH`
 - Date and time functions accept the result of `NOW()`
 - `DATE` and `TIME` roll over like Excel, e.g. `DATE(2020, 13, 1)` is 2021-01-01, `DATE(2020, 1, 0)` is 2019-12-31
-  and `TIME(25, 0, 0)` is 01:00. Out of range results are `#NUM!`
-- `WEBSERVICE` returns an error on HTTP error responses, and on WASM
+  and `TIME(25, 0, 0)` is 01:00. Out of range results are `#NUM!`, also for `EDATE` and `EOMONTH`
+- `WEBSERVICE` returns `#VALUE!` on failed requests and HTTP error responses, and is not implemented on WASM
 - The `WEBSERVICE` tests use a local HTTP server, so tests don't need internet access
 - The WASM package returns valid JSON for arrays
 

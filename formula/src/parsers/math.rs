@@ -1,7 +1,4 @@
-use super::{
-    Result,
-    helper::{number, parser_error},
-};
+use super::{Result, helper::number};
 use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 use std::f64::consts::PI;
@@ -100,9 +97,9 @@ impl Formula<'_> {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn parse_rand(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_rand(_pair: Pair<Rule>) -> Result<Expr> {
         // 53 random bits scaled into [0, 1)
-        let bits = getrandom::u64().map_err(|_| parser_error(pair.as_rule()))?;
+        let bits = getrandom::u64().map_err(|_| ExprError::Value)?;
         Ok(Expr::Number((bits >> 11) as f64 / (1u64 << 53) as f64))
     }
 
@@ -115,11 +112,10 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_sum(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         pair.into_inner()
             .try_fold(0.0, |sum, arg| match Self::parse_pair(arg)? {
                 Expr::Number(operand) => Ok(sum + operand),
-                _ => Err(parser_error(rule)),
+                _ => Err(ExprError::Value),
             })
             .map(number)
     }
@@ -162,7 +158,7 @@ mod tests {
         assert_eq!(value, Expr::Error(ExprError::Number));
 
         let formula = Formula::new("=SUM(1, 'a')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=RAND()").unwrap();
         let value = formula.parse().unwrap();

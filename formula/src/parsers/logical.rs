@@ -1,5 +1,5 @@
-use super::{Halt, Result, helper::parser_error};
-use crate::{Expr, ExprError, Formula, Rule, error::Error};
+use super::Result;
+use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -16,38 +16,34 @@ impl Formula<'_> {
     }
 
     pub(crate) fn parse_not(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args, rule)? {
+        match Self::get_formula(&mut args)? {
             Expr::Bool(b) => Ok(Expr::Bool(!b)),
-            _ => Err(parser_error(rule)),
+            _ => Err(ExprError::Value),
         }
     }
 
-    /// Falls back on spreadsheet errors and on invalid formulas.
-    /// Functions that are not implemented yet still return their error.
+    /// Falls back on any spreadsheet error
     pub(crate) fn parse_iferror(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let value = args.next().ok_or_else(|| parser_error(rule))?;
-        let error_value = args.next().ok_or_else(|| parser_error(rule))?;
+        let value = args.next().ok_or(ExprError::Value)?;
+        let error_value = args.next().ok_or(ExprError::Value)?;
 
         match Self::parse_pair(value) {
-            Err(Halt::Value(_) | Halt::Error(Error::Parser(_))) => Self::parse_pair(error_value),
+            Err(_) => Self::parse_pair(error_value),
             value => value,
         }
     }
 
     /// Falls back on `#N/A` only
     pub(crate) fn parse_ifna(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let value = args.next().ok_or_else(|| parser_error(rule))?;
-        let na_value = args.next().ok_or_else(|| parser_error(rule))?;
+        let value = args.next().ok_or(ExprError::Value)?;
+        let na_value = args.next().ok_or(ExprError::Value)?;
 
         match Self::parse_pair(value) {
-            Err(Halt::Value(ExprError::NotAvailable)) => Self::parse_pair(na_value),
+            Err(ExprError::NotAvailable) => Self::parse_pair(na_value),
             value => value,
         }
     }
@@ -59,27 +55,25 @@ impl Formula<'_> {
 
     /// Only the selected branch is evaluated
     pub(crate) fn parse_if(pair: Pair<Rule>) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut args = pair.into_inner();
-        let condition = Self::get_formula(&mut args, rule)?;
-        let true_value = args.next().ok_or_else(|| parser_error(rule))?;
+        let condition = Self::get_formula(&mut args)?;
+        let true_value = args.next().ok_or(ExprError::Value)?;
         let false_value = args.next();
 
         match condition {
             Expr::Bool(true) => Self::parse_pair(true_value),
             Expr::Bool(false) => false_value.map_or(Ok(Expr::Bool(false)), Self::parse_pair),
-            _ => Err(parser_error(rule)),
+            _ => Err(ExprError::Value),
         }
     }
 
     /// Combines one or more boolean arguments
     fn fold_bools(pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
-        let rule = pair.as_rule();
         let mut bools = pair.into_inner().map(|arg| match Self::parse_pair(arg)? {
             Expr::Bool(b) => Ok(b),
-            _ => Err(parser_error(rule)),
+            _ => Err(ExprError::Value),
         });
-        let first = bools.next().ok_or_else(|| parser_error(rule))??;
+        let first = bools.next().ok_or(ExprError::Value)??;
 
         bools.try_fold(first, |bool, b| Ok(f(bool, b?))).map(Expr::Bool)
     }
@@ -138,7 +132,7 @@ mod tests {
         assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=IFNA(F.ADD('a', 1), 'not found')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=IFNA(5, 'not found')").unwrap();
         let value = formula.parse().unwrap();
@@ -168,8 +162,8 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(5.0));
 
-        let formula = Formula::new("=IFERROR(ROUND(1, 0), 'err')").unwrap();
-        assert!(formula.parse().is_err());
+        let formula = Formula::new("=IFERROR(ROUND(1, 0), 'err')");
+        assert!(matches!(formula, Err(crate::error::Error::NotImplemented(_))));
 
         let formula = Formula::new("=IF(TRUE, 'true', 'false')").unwrap();
         let value = formula.parse().unwrap();
@@ -184,10 +178,10 @@ mod tests {
         assert_eq!(value, Expr::Bool(false));
 
         let formula = Formula::new("=AND(TRUE, 1)").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=IF(1, 'a', 'b')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=IF(FALSE, F.ADD('a', 1), 2)").unwrap();
         let value = formula.parse().unwrap();
@@ -198,9 +192,9 @@ mod tests {
         assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
         let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.ADD('a', 1))").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=XOR(TRUE, 'a')").unwrap();
-        assert!(formula.parse().is_err());
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
     }
 }
