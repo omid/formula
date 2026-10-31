@@ -1,4 +1,4 @@
-use formula::{Expr, ExprError, Formula};
+use formula::{Cells, Expr, ExprError, Formula, Size};
 use js_sys::Array;
 use std::fmt::Write;
 use wasm_bindgen::prelude::*;
@@ -8,11 +8,11 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub fn parse(str: &str, rows: Option<Array>) -> Result<JsValue, JsError> {
     let formula = Formula::new(str).map_err(|e| JsError::new(&e.to_string()))?;
-    let rows = rows
-        .map(|rows| rows.iter().map(|row| js_row(&row)).collect::<Result<Vec<_>, _>>())
-        .transpose()?
-        .unwrap_or_default();
-    let value = formula.parse_with(&rows).map_err(|e| JsError::new(&e.to_string()))?;
+    let value = match rows {
+        Some(rows) => formula.parse_with(&JsRows::new(rows)?),
+        None => formula.parse(),
+    }
+    .map_err(|e| JsError::new(&e.to_string()))?;
 
     let value = match value {
         Expr::Date(v) => v.to_string().into(),
@@ -29,29 +29,51 @@ pub fn parse(str: &str, rows: Option<Array>) -> Result<JsValue, JsError> {
     Ok(value)
 }
 
-/// A row of values: numbers, texts, booleans, and `null` or `undefined` for empty cells.
-/// Other values are `#VALUE!`.
-fn js_row(row: &JsValue) -> Result<Vec<Expr>, JsError> {
-    let row = row
-        .dyn_ref::<Array>()
-        .ok_or_else(|| JsError::new("Each row must be an array of values"))?;
+/// Rows of values from JavaScript, their cells are only converted when the formula reads them
+struct JsRows {
+    rows: Array,
+    size: Size,
+}
 
-    Ok(row
-        .iter()
-        .map(|value| {
-            if let Some(number) = value.as_f64() {
-                Expr::Number(number)
-            } else if let Some(text) = value.as_string() {
-                Expr::String(text)
-            } else if let Some(bool) = value.as_bool() {
-                Expr::Bool(bool)
-            } else if value.is_null() || value.is_undefined() {
-                Expr::Null
-            } else {
-                Expr::Error(ExprError::Value)
-            }
-        })
-        .collect())
+impl JsRows {
+    fn new(rows: Array) -> Result<Self, JsError> {
+        let mut columns = 0;
+        for row in rows.iter() {
+            let row = row
+                .dyn_ref::<Array>()
+                .ok_or_else(|| JsError::new("Each row must be an array of values"))?;
+            columns = columns.max(row.length());
+        }
+        let size = Size {
+            rows: rows.length(),
+            columns,
+        };
+        Ok(Self { rows, size })
+    }
+}
+
+impl Cells for JsRows {
+    fn size(&self, sheet: Option<&str>) -> Option<Size> {
+        sheet.is_none().then_some(self.size)
+    }
+
+    /// Numbers, texts and booleans, `null` and `undefined` are empty cells, other values are `#VALUE!`
+    fn cell(&self, _sheet: Option<&str>, row: u32, column: u32) -> Option<Expr> {
+        let row = self.rows.get(row.checked_sub(1)?).dyn_into::<Array>().ok()?;
+        let value = row.get(column.checked_sub(1)?);
+
+        if let Some(number) = value.as_f64() {
+            Some(Expr::Number(number))
+        } else if let Some(text) = value.as_string() {
+            Some(Expr::String(text))
+        } else if let Some(bool) = value.as_bool() {
+            Some(Expr::Bool(bool))
+        } else if value.is_null() || value.is_undefined() {
+            None
+        } else {
+            Some(Expr::Error(ExprError::Value))
+        }
+    }
 }
 
 /// Serializes the value as JSON
@@ -185,6 +207,25 @@ mod wasm_tests {
 
         assert_eq!(parse("=B1", Some(rows.clone())).unwrap(), JsValue::NULL);
         assert_eq!(parse("=SUM(A1:B1)", Some(rows)).unwrap(), 1.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_reads_only_the_cells_it_needs() {
+        // B1 counts how often it's read
+        let rows = js_sys::eval(
+            "globalThis.reads = 0;
+            const row = [1, 2];
+            Object.defineProperty(row, 1, { get() { globalThis.reads++; return 2; } });
+            [row]",
+        )
+        .unwrap();
+        let rows = Some(rows.unchecked_into::<Array>());
+        let reads = || js_sys::eval("globalThis.reads").unwrap();
+
+        assert_eq!(parse("=A1", rows.clone()).unwrap(), 1.0);
+        assert_eq!(reads(), 0.0);
+        assert_eq!(parse("=SUM(A1:B1)", rows).unwrap(), 3.0);
+        assert_eq!(reads(), 1.0);
     }
 
     #[wasm_bindgen_test]
