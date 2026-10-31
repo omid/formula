@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of other types like Excel, e.g. `SUM({1, 'a'})` is 1 instead of `#VALUE!`
 - `CONCAT`, `CONCATENATE` and `TEXTJOIN` are `#VALUE!` for texts longer than Excel's 32,767 characters
 
+### Fixed
+
+- `ATAN2` takes the x and then the y coordinate like Excel, e.g. `ATAN2(1, 0)` is 0 instead of π/2,
+  and `ATAN2(0, 0)` is `#DIV/0!`
+
 ## 0.2.0 (2026-10-31)
 
 ### Added

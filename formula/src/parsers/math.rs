@@ -47,8 +47,15 @@ impl Evaluator<'_> {
         self.parse_unary_number(pair, f64::atan)
     }
 
+    /// Like Excel, the arguments are the x and then the y coordinate, and the angle of `(0, 0)` is `#DIV/0!`
     pub(crate) fn parse_atan2(&self, pair: Pair<Rule>) -> Result<Expr> {
-        self.parse_binary_number(pair, |operand1, operand2| number(operand1.atan2(operand2)))
+        self.parse_binary_number(pair, |x, y| {
+            if x == 0.0 && y == 0.0 {
+                Expr::Error(ExprError::DivisionByZero)
+            } else {
+                number(y.atan2(x))
+            }
+        })
     }
 
     pub(crate) fn parse_atanh(&self, pair: Pair<Rule>) -> Result<Expr> {
@@ -197,5 +204,25 @@ mod tests {
         let formula = Formula::new("=LOG(8, 2)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(3.0));
+
+        let formula = Formula::new("=ATAN2(1, 0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(0.0));
+
+        let formula = Formula::new("=ATAN2(0, 1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(std::f64::consts::FRAC_PI_2));
+
+        let formula = Formula::new("=ATAN2(-1, -1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(-3.0 * std::f64::consts::FRAC_PI_4));
+
+        let formula = Formula::new("=ATAN2(-1, 0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(std::f64::consts::PI));
+
+        let formula = Formula::new("=ATAN2(0, 0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
     }
 }
