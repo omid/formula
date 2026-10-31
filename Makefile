@@ -8,6 +8,11 @@ test:
      done
 	@cargo doc --no-deps --all-features --examples
 
+# Measures the test coverage of the native tests and lists the lines they miss, needs `cargo install cargo-llvm-cov`.
+# formula-wasm's JavaScript side only runs in `make test_wasm`, so it counts as missed here.
+coverage:
+	@cargo llvm-cov --workspace --summary-only --show-missing-lines
+
 check:
 	@cargo +nightly fmt --all
 	@cargo clippy --fix --allow-dirty --allow-staged --all-targets -- -D warnings -A clippy::extra_unused_lifetimes
