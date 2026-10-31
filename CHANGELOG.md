@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Table data: formulas can read cells through references like `A1`, `$A$1`, `B3:A1`, `A:C`, `2:3`, `Sheet2!A1`
+  or `'My sheet'!A1:B2`. `Formula::parse_with` reads them from the new `Cells` trait, which rows of values
+  (`Vec<Vec<Expr>>`) implement. A cell is its value and a range is its rows, like array literals
+- `formula-wasm`'s `parse` takes optional rows of values, e.g. `parse('=SUM(A1:B2)', [[1, 2], [3, null]])`
+- `#REF!` (`ExprError::Reference`) for references to sheets that don't exist
+- `Expr` converts from numbers, booleans, texts, dates, times, errors and options, to build table data
+
+### Changed
+
+- `Formula::parse` takes `&self`, so a formula can be evaluated against many tables
+- Like Excel, empty cells are 0 in math, an empty text in text functions and FALSE in logical functions
+- `SUM`, `AND`, `OR`, `XOR`, `CONCAT`, `CONCATENATE` and `TEXTJOIN` accept ranges and arrays, and skip their values
+  of other types like Excel, e.g. `SUM({1, 'a'})` is 1 instead of `#VALUE!`
+- `CONCAT`, `CONCATENATE` and `TEXTJOIN` are `#VALUE!` for texts longer than Excel's 32,767 characters
+
 ## 0.2.0 (2026-10-31)
 
 ### Added

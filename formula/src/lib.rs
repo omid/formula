@@ -19,6 +19,7 @@ So far we have the following features:
 - 8 logical functions
 - 2 web functions
 - plus all arithmetic and comparison operators
+- table data, through references like `A1`, `B2:C5`, `A:A` or `'My sheet'!A1`
 
 ### Installation and usage
 
@@ -39,6 +40,26 @@ fn main() -> Result<()> {
 }
 ```
 
+Formulas can read table data through references like `A1`, `$A$1`, `B2:C5`, `A:A`, `2:3`, `Sheet2!A1`
+or `'My sheet'!A1:B2`. Pass rows of values, or implement the `Cells` trait for your own data,
+like a workbook or a database:
+
+```rust
+use formula::{Formula, Expr, Result};
+
+fn main() -> Result<()> {
+    let rows = vec![
+        vec![Expr::from("Apples"), Expr::from(3)],
+        vec![Expr::from("Pears"), Expr::from(2)],
+    ];
+    let formula = Formula::new("=SUM(B1:B2)")?;
+    assert_eq!(formula.parse_with(&rows)?, Expr::Number(5.0));
+    Ok(())
+}
+```
+
+Like Excel, empty cells are 0 in math, an empty text in text functions and FALSE in logical functions.
+
 #### JavaScript
 
 Add this library to your project with `npm install formula-wasm` or add `formula-wasm` to your `package.json` file.
@@ -50,12 +71,16 @@ import { parse } from 'formula-wasm';
 
 const value = parse('=UPPER(TRIM("   Hello "))');
 console.assert(value, "HELLO");
+
+// with table data
+const total = parse('=SUM(B1:B2)', [['Apples', 3], ['Pears', 2]]);
+console.assert(total, 5);
 ```
 
 ### What we do not support, yet:
 
 - We don't support all existing functions in the world, but we would like to add more of them, like Excel functions, Google Sheets functions, and so on
-- At the moment, we don't support table data. It means you need to extract table data and pass theirs values to this library
+- Named ranges, Excel table references like `Sales[Price]`, and references to several sheets like `Sheet1:Sheet3!A1`
 - We do not support simple formulas like `1+1` or as argument like `AND(1>3, 1<3)` or `SUM(2-1, 2)`. Instead, you can use our `F.` functions like `AND(F.GT(1, 3), F.LT(1, 3))` or `SUM(F.SUB(2, 1), 2)`
 - We still do not support parentheses to change the order of operations, but you can use our `F.` functions. So for example instead of `2*(1+1)`, you should use `F.MUL(2, F.ADD(1, 1))`
 
