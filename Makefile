@@ -1,6 +1,6 @@
 test:
 	@cargo test --all -- --nocapture
-	@for example in examples/*.rs; do \
+	@for example in formula/examples/*.rs; do \
          cargo run --example "$$(basename "$${example%.rs}")" -- $$args; \
      done
 	@cargo doc --no-deps --all-features --examples
