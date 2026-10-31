@@ -1,7 +1,10 @@
 use super::{helper::parser_error, Result};
-use crate::{error::Error, Expr, Formula, Rule};
-use chrono::{Datelike, Months, NaiveDate, NaiveTime, Timelike, Utc, Weekday};
+use crate::{error::Error, Expr, ExprError, Formula, Rule};
+use chrono::{Datelike, Months, NaiveDate, NaiveTime, TimeDelta, Timelike, Utc, Weekday};
 use pest::iterators::Pair;
+
+/// Excel's limit for each argument of `TIME`
+const MAX_TIME_PART: f64 = 32_767.0;
 
 impl Formula<'_> {
     #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
@@ -160,6 +163,7 @@ impl Formula<'_> {
         Self::parse_date_part(pair, |date| f64::from(date.year()))
     }
 
+    /// Like Excel, the parts overflow into each other (e.g. 90 minutes) and the time wraps around midnight
     pub(crate) fn parse_time(pair: Pair<Rule>) -> Result<Expr> {
         let rule = pair.as_rule();
         let mut args = pair.into_inner();
@@ -167,17 +171,21 @@ impl Formula<'_> {
         let minute = Self::get_formula(&mut args, rule)?;
         let second = Self::get_formula(&mut args, rule)?;
 
-        let time = match (hour, minute, second) {
-            (Expr::Number(hour), Expr::Number(minute), Expr::Number(second))
-                if hour >= 0.0 && minute >= 0.0 && second >= 0.0 =>
-            {
-                NaiveTime::from_hms_opt(hour as u32, minute as u32, second as u32)
-            }
-            _ => None,
+        let (Expr::Number(hour), Expr::Number(minute), Expr::Number(second)) = (hour, minute, second) else {
+            return Err(parser_error(rule));
         };
-        time.map(Expr::Time).ok_or_else(|| parser_error(rule))
+        let seconds = hour.trunc() * 3600.0 + minute.trunc() * 60.0 + second.trunc();
+        if seconds < 0.0 || [hour, minute, second].iter().any(|part| *part > MAX_TIME_PART) {
+            return Ok(Expr::Error(ExprError::Number));
+        }
+
+        NaiveTime::from_num_seconds_from_midnight_opt((seconds % 86_400.0) as u32, 0)
+            .map(Expr::Time)
+            .ok_or_else(|| parser_error(rule))
     }
 
+    /// Like Excel, months and days overflow into the next or previous year and month,
+    /// e.g. `DATE(2020, 13, 1)` is 2021-01-01 and `DATE(2020, 1, 0)` is 2019-12-31
     pub(crate) fn parse_date(pair: Pair<Rule>) -> Result<Expr> {
         let rule = pair.as_rule();
         let mut args = pair.into_inner();
@@ -185,13 +193,15 @@ impl Formula<'_> {
         let month = Self::get_formula(&mut args, rule)?;
         let day = Self::get_formula(&mut args, rule)?;
 
-        let date = match (year, month, day) {
-            (Expr::Number(year), Expr::Number(month), Expr::Number(day)) => {
-                NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32)
-            }
-            _ => None,
+        let (Expr::Number(year), Expr::Number(month), Expr::Number(day)) = (year, month, day) else {
+            return Err(parser_error(rule));
         };
-        date.map(Expr::Date).ok_or_else(|| parser_error(rule))
+        let date = i32::try_from(year.trunc() as i64)
+            .ok()
+            .and_then(|year| NaiveDate::from_ymd_opt(year, 1, 1))
+            .and_then(|date| Self::shift_months(date, month.trunc() - 1.0))
+            .and_then(|date| date.checked_add_signed(TimeDelta::try_days((day.trunc() as i64).saturating_sub(1))?));
+        Ok(date.map_or(Expr::Error(ExprError::Number), Expr::Date))
     }
 
     /// Evaluates a function that takes one date
@@ -363,7 +373,70 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Time(NaiveTime::from_hms_opt(2, 30, 0).unwrap()));
 
+        let formula = Formula::new("=TIME(25,0,0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Time(NaiveTime::from_hms_opt(1, 0, 0).unwrap()));
+
+        let formula = Formula::new("=TIME(1,90,0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Time(NaiveTime::from_hms_opt(2, 30, 0).unwrap()));
+
+        let formula = Formula::new("=TIME(1,-30,0.9)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Time(NaiveTime::from_hms_opt(0, 30, 0).unwrap()));
+
         let formula = Formula::new("=TIME(-1,30,0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=TIME(32768,0,0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=TIME('1',0,0)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=DATE(2020,13,1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()));
+
+        let formula = Formula::new("=DATE(2020,0,1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2019, 12, 1).unwrap()));
+
+        let formula = Formula::new("=DATE(2020,-13,1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2018, 11, 1).unwrap()));
+
+        let formula = Formula::new("=DATE(2020,1,0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2019, 12, 31).unwrap()));
+
+        let formula = Formula::new("=DATE(2020,3,-1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2020, 2, 28).unwrap()));
+
+        let formula = Formula::new("=DATE(2020,2,30)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2020, 3, 1).unwrap()));
+
+        let formula = Formula::new("=DATE(2020.9,0.5,1.9)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2019, 12, 1).unwrap()));
+
+        let formula = Formula::new("=DATE(1e10,1,1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=DATE(2020,1,1e300)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=DATE(2020,1,-1e300)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Number));
+
+        let formula = Formula::new("=DATE('2020',1,1)").unwrap();
         assert!(formula.parse().is_err());
 
         let formula = Formula::new("=TIMEVALUE('02:30:00')").unwrap();

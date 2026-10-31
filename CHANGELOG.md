@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WEEKDAY` uses Excel's numbering and supports the return type argument
 - Excel compatible `MOD`, `FIXED`, `TRIM`, `PROPER`, `TEXTJOIN`, `CHAR`, `UNICHAR`, `CODE`, `UNICODE`, `FIND` and `SEARCH`
 - Date and time functions accept the result of `NOW()`
+- `DATE` and `TIME` roll over like Excel, e.g. `DATE(2020, 13, 1)` is 2021-01-01, `DATE(2020, 1, 0)` is 2019-12-31
+  and `TIME(25, 0, 0)` is 01:00. Out of range results are `#NUM!`
 - `WEBSERVICE` returns an error on HTTP error responses, and on WASM
 - The WASM package returns valid JSON for arrays
 
