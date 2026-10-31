@@ -2,21 +2,21 @@
 name = "formula"
 description = "A parser and evaluator of spreadsheet-like formulas"
 authors = ["Omid Rad <omidmr@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 keywords = ["excel", "formula", "spreadsheet", "parser"]
 categories = ["parser-implementations"]
 readme = "README.md"
 documentation = "https://docs.rs/formula"
 repository = "https://github.com/omid/formula"
-edition = "2021"
+edition = "2024"
 rust-version = "1.99"
 
 [dependencies]
 chrono = "0.4"
+getrandom = "0.4"
 pest = "2.7"
 pest_derive = "2.7"
-rand = "0.10"
 thiserror = "2.0"
 urlencoding = "2.1"
 #sxd-xpath = "0.4"

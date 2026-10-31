@@ -1,211 +1,95 @@
-use crate::{error::Error, Expr, Formula, Result, Rule};
+use super::{Result, helper::number};
+use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
+use std::cmp::Ordering;
 
 impl Formula<'_> {
     pub(crate) fn parse_add(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 + operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Number(res))
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 + operand2))
     }
 
     pub(crate) fn parse_sub(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 - operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Number(res))
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 - operand2))
     }
 
     pub(crate) fn parse_mul(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 * operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Number(res))
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 * operand2))
     }
 
     pub(crate) fn parse_div(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => {
-                if operand2 == 0.0 {
-                    Expr::Null
-                } else {
-                    Expr::Number(operand1 / operand2)
-                }
+        Self::parse_binary_number(pair, |operand1, operand2| {
+            if operand2 == 0.0 {
+                Expr::Error(ExprError::DivisionByZero)
+            } else {
+                number(operand1 / operand2)
             }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(res)
+        })
     }
 
     pub(crate) fn parse_pow(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1.powf(operand2),
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Number(res))
+        Self::parse_binary_number(pair, |operand1, operand2| number(operand1.powf(operand2)))
     }
 
     pub(crate) fn parse_eq(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 == operand2,
-            (Expr::String(operand1), Expr::String(operand2)) => operand1 == operand2,
-            (Expr::Time(operand1), Expr::Time(operand2)) => operand1 == operand2,
-            (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 == operand2,
-            (Expr::Date(operand1), Expr::Date(operand2)) => operand1 == operand2,
-            (Expr::Bool(operand1), Expr::Bool(operand2)) => operand1 == operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(res))
+        Self::parse_comparison(pair, Ordering::is_eq)
     }
 
     pub(crate) fn parse_ne(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => (operand1 - operand2).abs() > 0.000_000_1,
-            (Expr::String(operand1), Expr::String(operand2)) => operand1 != operand2,
-            (Expr::Time(operand1), Expr::Time(operand2)) => operand1 != operand2,
-            (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 != operand2,
-            (Expr::Date(operand1), Expr::Date(operand2)) => operand1 != operand2,
-            (Expr::Bool(operand1), Expr::Bool(operand2)) => operand1 != operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(res))
+        Self::parse_comparison(pair, Ordering::is_ne)
     }
 
     pub(crate) fn parse_gt(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 > operand2,
-            (Expr::String(operand1), Expr::String(operand2)) => operand1 > operand2,
-            (Expr::Time(operand1), Expr::Time(operand2)) => operand1 > operand2,
-            (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 > operand2,
-            (Expr::Date(operand1), Expr::Date(operand2)) => operand1 > operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(res))
+        Self::parse_comparison(pair, Ordering::is_gt)
     }
 
     pub(crate) fn parse_lt(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 < operand2,
-            (Expr::String(operand1), Expr::String(operand2)) => operand1 < operand2,
-            (Expr::Time(operand1), Expr::Time(operand2)) => operand1 < operand2,
-            (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 < operand2,
-            (Expr::Date(operand1), Expr::Date(operand2)) => operand1 < operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(res))
+        Self::parse_comparison(pair, Ordering::is_lt)
     }
 
     pub(crate) fn parse_gte(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 >= operand2,
-            (Expr::String(operand1), Expr::String(operand2)) => operand1 >= operand2,
-            (Expr::Time(operand1), Expr::Time(operand2)) => operand1 >= operand2,
-            (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 >= operand2,
-            (Expr::Date(operand1), Expr::Date(operand2)) => operand1 >= operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(res))
+        Self::parse_comparison(pair, Ordering::is_ge)
     }
 
     pub(crate) fn parse_lte(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args, &rule_name)?;
-        let operand2 = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match (operand1, operand2) {
-            (Expr::Number(operand1), Expr::Number(operand2)) => operand1 <= operand2,
-            (Expr::String(operand1), Expr::String(operand2)) => operand1 <= operand2,
-            (Expr::Time(operand1), Expr::Time(operand2)) => operand1 <= operand2,
-            (Expr::Datetime(operand1), Expr::Datetime(operand2)) => operand1 <= operand2,
-            (Expr::Date(operand1), Expr::Date(operand2)) => operand1 <= operand2,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(res))
+        Self::parse_comparison(pair, Ordering::is_le)
     }
 
     pub(crate) fn parse_percent(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand = Self::get_formula(&mut args, &rule_name)?;
-
-        let res = match operand {
-            Expr::Number(operand) => operand / 100.0,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Number(res))
+        Self::parse_unary_number(pair, |operand| operand / 100.0)
     }
 
     pub(crate) fn parse_negate(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let operand = Self::get_formula(&mut args, &rule_name)?;
+        Self::parse_unary_number(pair, |operand| -operand)
+    }
 
-        let res = match operand {
-            Expr::Number(operand) => -operand,
-            _ => return Err(Error::Parser(rule_name)),
+    /// Compares two values of the same type. Like Excel:
+    /// - numbers that only differ by floating point noise (e.g. `0.1 + 0.2` and `0.3`) are equal
+    /// - texts are compared case-insensitively, `EXACT` is the case-sensitive comparison
+    fn parse_comparison(pair: Pair<Rule>, check: fn(Ordering) -> bool) -> Result<Expr> {
+        let mut args = pair.into_inner();
+        let operand1 = Self::get_formula(&mut args)?;
+        let operand2 = Self::get_formula(&mut args)?;
+
+        let ordering = match (&operand1, &operand2) {
+            (Expr::Number(n1), Expr::Number(n2)) if (n1 - n2).abs() <= 1e-15 * n1.abs().max(n2.abs()) => {
+                Some(Ordering::Equal)
+            }
+            (Expr::String(s1), Expr::String(s2)) => Some(s1.to_lowercase().cmp(&s2.to_lowercase())),
+            (Expr::Number(_), Expr::Number(_))
+            | (Expr::Time(_), Expr::Time(_))
+            | (Expr::Datetime(_), Expr::Datetime(_))
+            | (Expr::Date(_), Expr::Date(_))
+            | (Expr::Bool(_), Expr::Bool(_)) => operand1.partial_cmp(&operand2),
+            _ => None,
         };
-        Ok(Expr::Number(res))
+        ordering.map(|o| Expr::Bool(check(o))).ok_or(ExprError::Value)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -228,11 +112,15 @@ mod tests {
 
         let formula = Formula::new("=F.DIV(10,0)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Null);
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
 
-        let formula = Formula::new("=F.MUL(5,6)").unwrap();
+        let formula = Formula::new("=F.DIV(0,0)").unwrap();
         let value = formula.parse().unwrap();
-        assert_eq!(value, Expr::Number(30.0));
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        let formula = Formula::new("=F.DIV(-10,4)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(-2.5));
 
         let formula = Formula::new("=F.POW(5,2)").unwrap();
         let value = formula.parse().unwrap();
@@ -245,6 +133,25 @@ mod tests {
         let formula = Formula::new("=F.NE('a','a')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=F.EQ(F.ADD(0.1,0.2),0.3)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.NE(F.ADD(0.1,0.2),0.3)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=F.NE(1,1.00000001)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.GT(TRUE,FALSE)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.EQ(1,'1')").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
         let formula = Formula::new("=F.GT('a','a')").unwrap();
         let value = formula.parse().unwrap();
@@ -269,5 +176,54 @@ mod tests {
         let formula = Formula::new("=F.NEGATE(5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(-5.0));
+
+        let formula = Formula::new("=F.EQ('a','A')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.NE('Straße','STRASSE')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.NE('Ä','ä')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=F.LT('a','B')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.GTE('b','A')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.LT('a','b')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.GTE(DATE(2020,1,2),DATE(2020,1,1))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.EQ(1e-20,2e-20)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=F.NE(TRUE,FALSE)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.ADD(F.DIV(1,0),1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        // the first error wins
+        let formula = Formula::new("=F.ADD(F.ADD('a',1),F.DIV(1,0))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=F.EQ(NA(),1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::NotAvailable));
     }
 }

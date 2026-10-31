@@ -1,137 +1,88 @@
-use crate::{error::Error, Expr, Formula, Result, Rule};
+use super::Result;
+use crate::{Expr, ExprError, Formula, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
     pub(crate) fn parse_and(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
-        let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
-
-        let bool = match bool {
-            Expr::Bool(mut bool) => {
-                for b in bools {
-                    match b {
-                        Expr::Bool(b) => bool = bool && b,
-                        _ => return Err(Error::Parser(rule_name)),
-                    }
-                }
-                bool
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(bool))
+        Self::fold_bools(pair, |bool, b| bool && b)
     }
 
     pub(crate) fn parse_or(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
-        let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
-
-        let bool = match bool {
-            Expr::Bool(mut bool) => {
-                for b in bools {
-                    match b {
-                        Expr::Bool(b) => bool = bool || b,
-                        _ => return Err(Error::Parser(rule_name)),
-                    }
-                }
-                bool
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(bool))
+        Self::fold_bools(pair, |bool, b| bool || b)
     }
 
     pub(crate) fn parse_xor(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
-        let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
-        let bools = args.map(Self::parse_pair).collect::<Result<Vec<_>>>()?;
-
-        let bool = match bool {
-            Expr::Bool(mut bool) => {
-                for b in bools {
-                    match b {
-                        Expr::Bool(b) => bool = bool != b,
-                        _ => return Err(Error::Parser(rule_name)),
-                    }
-                }
-                bool
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
-
-        Ok(Expr::Bool(bool))
+        Self::fold_bools(pair, |bool, b| bool != b)
     }
 
     pub(crate) fn parse_not(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
-        let bool = Self::get_formula(&mut args, &rule_name)?;
 
-        let bool = match bool {
-            Expr::Bool(b) => !b,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-        Ok(Expr::Bool(bool))
+        match Self::get_formula(&mut args)? {
+            Expr::Bool(b) => Ok(Expr::Bool(!b)),
+            _ => Err(ExprError::Value),
+        }
     }
 
+    /// Falls back on any spreadsheet error
     pub(crate) fn parse_iferror(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
-        let value = args.next();
-        let error_value = args.next().ok_or_else(|| Error::Parser(rule_name.clone()))?;
+        let value = args.next().ok_or(ExprError::Value)?;
+        let error_value = args.next().ok_or(ExprError::Value)?;
 
-        let value = value.unwrap_or_else(|| error_value.clone());
-        let value = Self::parse_pair(value)
-            .or_else(|_| Self::parse_pair(error_value))
-            .map_err(|_| Error::Parser(rule_name))?;
-
-        Ok(value)
+        match Self::parse_pair(value) {
+            Err(_) => Self::parse_pair(error_value),
+            value => value,
+        }
     }
 
+    /// Falls back on `#N/A` only
     pub(crate) fn parse_ifna(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
-        let value = Self::get_formula(&mut args, &rule_name)?;
-        let na_value = Self::get_formula(&mut args, &rule_name)?;
+        let value = args.next().ok_or(ExprError::Value)?;
+        let na_value = args.next().ok_or(ExprError::Value)?;
 
-        let value = match value {
-            Expr::Null => na_value,
-            _ => return Err(Error::Parser(rule_name)),
-        };
-
-        Ok(value)
+        match Self::parse_pair(value) {
+            Err(ExprError::NotAvailable) => Self::parse_pair(na_value),
+            value => value,
+        }
     }
 
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    pub(crate) fn parse_na(_pair: Pair<Rule>) -> Result<Expr> {
+        Ok(Expr::Error(ExprError::NotAvailable))
+    }
+
+    /// Only the selected branch is evaluated
     pub(crate) fn parse_if(pair: Pair<Rule>) -> Result<Expr> {
-        let rule_name = format!("{:?}", pair.as_rule());
         let mut args = pair.into_inner();
-        let value = Self::get_formula(&mut args, &rule_name)?;
-        let true_value = Self::get_opt_formula_with_default(&mut args, Expr::Number(0.0))?;
-        let false_value = Self::get_opt_formula_with_default(&mut args, Expr::Number(0.0))?;
+        let condition = Self::get_formula(&mut args)?;
+        let true_value = args.next().ok_or(ExprError::Value)?;
+        let false_value = args.next();
 
-        let value = match value {
-            Expr::Bool(b) => {
-                if b {
-                    true_value
-                } else {
-                    false_value
-                }
-            }
-            _ => return Err(Error::Parser(rule_name)),
-        };
+        match condition {
+            Expr::Bool(true) => Self::parse_pair(true_value),
+            Expr::Bool(false) => false_value.map_or(Ok(Expr::Bool(false)), Self::parse_pair),
+            _ => Err(ExprError::Value),
+        }
+    }
 
-        Ok(value)
+    /// Combines one or more boolean arguments
+    fn fold_bools(pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
+        let mut bools = pair.into_inner().map(|arg| match Self::parse_pair(arg)? {
+            Expr::Bool(b) => Ok(b),
+            _ => Err(ExprError::Value),
+        });
+        let first = bools.next().ok_or(ExprError::Value)??;
+
+        bools.try_fold(first, |bool, b| Ok(f(bool, b?))).map(Expr::Bool)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -164,16 +115,86 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Bool(true));
 
-        // let formula = Formula::new("=IFNA(x, 'not found')").unwrap();
-        // let value = formula.parse().unwrap();
-        // assert_eq!(value, Expr::String("not found".to_string()));
+        let formula = Formula::new("=NA()").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::NotAvailable));
+
+        let formula = Formula::new("=IFNA(NA(), 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("not found".to_string()));
+
+        let formula = Formula::new("=IFNA(F.ADD(NA(), 1), 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("not found".to_string()));
+
+        let formula = Formula::new("=IFNA(F.DIV(1, 0), 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        let formula = Formula::new("=IFNA(F.ADD('a', 1), 'not found')").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=IFNA(5, 'not found')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(5.0));
 
         let formula = Formula::new("=IFERROR(NOT('a'), 'err')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("err".to_string()));
 
+        let formula = Formula::new("=IFERROR(F.DIV(1, 0), 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=IFERROR(SQRT(F.SUB(0, F.DIV(1, 0))), 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=IFERROR(NA(), 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("err".to_string()));
+
+        let formula = Formula::new("=NOT(F.DIV(1, 0))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        let formula = Formula::new("=IFERROR(5, 'err')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(5.0));
+
+        let formula = Formula::new("=IFERROR(ROUND(1, 0), 'err')");
+        assert!(matches!(formula, Err(crate::error::Error::NotImplemented(_))));
+
         let formula = Formula::new("=IF(TRUE, 'true', 'false')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("true".to_string()));
+
+        let formula = Formula::new("=IF(TRUE, 1, F.ADD('a', 1))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(1.0));
+
+        let formula = Formula::new("=IF(FALSE, 1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=AND(TRUE, 1)").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=IF(1, 'a', 'b')").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=IF(FALSE, F.ADD('a', 1), 2)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(2.0));
+
+        let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.DIV(1, 0))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Error(ExprError::DivisionByZero));
+
+        let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.ADD('a', 1))").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+
+        let formula = Formula::new("=XOR(TRUE, 'a')").unwrap();
+        assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
     }
 }

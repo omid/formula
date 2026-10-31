@@ -12,13 +12,13 @@ jobs:
   lints:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Format
         run: |
           cargo fmt -- --check
       - name: Linting
         run: |
-          cargo clippy -- -D warnings
+          cargo clippy --all-targets -- -D warnings
       - name: Cargo Doc
         run: |
           cargo doc --no-deps --all-features --examples
@@ -38,7 +38,7 @@ jobs:
         - stable
         - nightly
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install ${{ matrix.version }}
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -52,7 +52,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Audit
         run: |
           cargo update

@@ -2,13 +2,20 @@
 import { parse } from './pkg';
 
 function addContent(content) {
-  let result = parse(content);
+  const result = parse(content);
+
+  // textContent, so formula results are never interpreted as HTML
+  const formula = document.createElement("div");
+  formula.style.display = "inline-block";
+  formula.style.width = "300px";
+  formula.textContent = content;
+
+  const value = document.createElement(result === null ? "em" : "span");
+  value.style.fontWeight = "bold";
+  value.textContent = result === null ? "null" : String(result);
 
   const newDiv = document.createElement("div");
-  if (result === null) {
-    result = "<em>null</em>";
-  }
-  newDiv.innerHTML = `<div style="display: inline-block; width: 300px">${content}</div>: <span style="font-weight: bold">${result}</span>`;
+  newDiv.append(formula, ": ", value);
   document.body.appendChild(newDiv);
 }
 

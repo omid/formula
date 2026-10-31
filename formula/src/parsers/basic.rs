@@ -1,4 +1,5 @@
-use crate::{Expr, Formula, Result, Rule};
+use super::Result;
+use crate::{Expr, Formula, Rule};
 use pest::iterators::Pair;
 
 impl Formula<'_> {
@@ -10,17 +11,35 @@ impl Formula<'_> {
 
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn parse_string(pair: Pair<Rule>) -> Result<Expr> {
-        let string = pair.into_inner().as_str().to_string();
-        let string = string
-            .replace("\\\'", "\'")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\"")
-            .replace("\\b", "\u{0008}")
-            .replace("\\f", "\u{000C}")
-            .replace("\\\n", "\n")
-            .replace("\\\r", "\r")
-            .replace("\\\t", "\t");
-        Ok(Expr::String(string))
+        Ok(Expr::String(Self::unescape(pair.into_inner().as_str())))
+    }
+
+    /// Decodes the escape sequences that the grammar accepts, in a single pass
+    fn unescape(escaped: &str) -> String {
+        let mut string = String::with_capacity(escaped.len());
+        let mut chars = escaped.chars();
+        while let Some(c) = chars.next() {
+            if c != '\\' {
+                string.push(c);
+                continue;
+            }
+            match chars.next() {
+                Some('b') => string.push('\u{0008}'),
+                Some('f') => string.push('\u{000C}'),
+                Some('n') => string.push('\n'),
+                Some('r') => string.push('\r'),
+                Some('t') => string.push('\t'),
+                Some('u') => {
+                    let code = chars.by_ref().take(4).collect::<String>();
+                    let c = u32::from_str_radix(&code, 16).ok().and_then(char::from_u32);
+                    string.push(c.unwrap_or(char::REPLACEMENT_CHARACTER));
+                }
+                // quotes and backslash
+                Some(c) => string.push(c),
+                None => {}
+            }
+        }
+        string
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
@@ -50,7 +69,8 @@ impl Formula<'_> {
                     row = Vec::new();
                 }
                 _ => {
-                    row.push(Self::parse_pair(ipair)?);
+                    // An error element doesn't make the whole array an error
+                    row.push(Self::parse_pair(ipair).unwrap_or_else(Expr::Error));
                 }
             }
         }
@@ -67,7 +87,7 @@ impl Formula<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Formula;
+    use crate::{ExprError, Formula};
 
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -92,6 +112,35 @@ mod tests {
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("'TEST\"".to_string()));
 
+        let formula = Formula::new(r"='a\\b\nc\u0041'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("a\\b\ncA".to_string()));
+
+        let formula = Formula::new("=\"it's\"").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("it's".to_string()));
+
+        assert!(Formula::new("='it's'").is_err());
+        assert!(Formula::new("=F.ADD(1,2) garbage").is_err());
+        assert!(Formula::new("=1+1").is_err());
+
+        let formula = Formula::new("={1, F.DIV(1, 0)}").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(
+            value,
+            Expr::Array(vec![Expr::Number(1.0), Expr::Error(ExprError::DivisionByZero)])
+        );
+
+        let formula = Formula::new("={F.ADD('a', 1); 2}").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(
+            value,
+            Expr::Array(vec![
+                Expr::Array(vec![Expr::Error(ExprError::Value)]),
+                Expr::Array(vec![Expr::Number(2.0)])
+            ])
+        );
+
         let formula = Formula::new("={}").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Array(vec![]));
@@ -112,5 +161,21 @@ mod tests {
                 Expr::Array(vec![Expr::Number(2.0), Expr::Bool(true)]),
             ])
         );
+
+        let formula = Formula::new("=\"say \\\"hi\\\"\"").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("say \"hi\"".to_string()));
+
+        let formula = Formula::new("='\\uD800'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\u{FFFD}".to_string()));
+
+        let formula = Formula::new("=''").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String(String::new()));
+
+        let formula = Formula::new("= 1 ").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(1.0));
     }
 }
