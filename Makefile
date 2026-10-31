@@ -1,3 +1,6 @@
+# The version of the formula crate, or the new one for `make bump VERSION=x.y.z`
+VERSION ?= $(shell sed -n 's/^version = "\(.*\)"/\1/p' formula/Cargo.toml)
+
 test:
 	@cargo test --all -- --nocapture
 	@for example in formula/examples/*.rs; do \
@@ -33,3 +36,26 @@ wasm_pack_and_publish:
 		wasm-pack build --release; \
 		wasm-pack pack; \
 		wasm-pack publish
+
+# Sets the version of both crates and dates the unreleased changes in the changelog, e.g. `make bump VERSION=0.2.0`
+bump:
+	@test "$(origin VERSION)" = "command line" || { echo "Usage: make bump VERSION=x.y.z"; exit 1; }
+	@grep -q '^## Unreleased$$' CHANGELOG.md || { echo "CHANGELOG.md has no Unreleased section"; exit 1; }
+	@perl -pi -e 's/^version = ".*"/version = "$(VERSION)"/' formula/Cargo.toml formula-wasm/Cargo.toml
+	@perl -pi -e 's/^formula = \{ version = ".*" \}/formula = { version = "$(VERSION)" }/' formula-wasm/Cargo.toml
+	@perl -pi -e 's/^## Unreleased$$/## $(VERSION) ($(shell date +%F))/' CHANGELOG.md
+
+# Tags the current version and creates its GitHub release, which publishes the crate to crates.io.
+# Run it on main after the `make bump` changes are merged.
+release:
+	@test -z "$$(git status --porcelain)" || { echo "Commit or stash your changes first"; exit 1; }
+	@test "$$(git branch --show-current)" = main || { echo "Release from the main branch"; exit 1; }
+	@git fetch -q origin main
+	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo "main differs from origin/main"; exit 1; }
+	@grep -q '^## $(VERSION) ' CHANGELOG.md || { echo "CHANGELOG.md has no $(VERSION) section, run make bump first"; exit 1; }
+	@cargo publish --dry-run -q -p formula
+	@git tag v$(VERSION)
+	@git push -q origin v$(VERSION)
+	@awk '/^## $(VERSION) /{f=1; next} /^## /{f=0} f' CHANGELOG.md \
+		| gh release create v$(VERSION) --verify-tag --title v$(VERSION) --notes-file -
+	@echo "Released v$(VERSION), publish the npm package with: make wasm_pack_and_publish"
