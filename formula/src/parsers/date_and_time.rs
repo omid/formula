@@ -7,12 +7,12 @@ use pest::iterators::Pair;
 const MAX_TIME_PART: f64 = 32_767.0;
 
 impl Evaluator<'_> {
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_now(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Datetime(Utc::now()))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_today(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Date(Utc::now().naive_utc().date()))
     }
@@ -234,7 +234,6 @@ mod tests {
     use crate::Formula;
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_date_and_time_types() {
         let formula = Formula::new("=DATE(2020,2,3)").unwrap();
         let value = formula.parse().unwrap();
@@ -337,7 +336,10 @@ mod tests {
         let formula = Formula::new("=ISOWEEKNUM('1/30/2020')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(5.0));
+    }
 
+    #[test]
+    fn test_parse_date_and_time_rollover() {
         let formula = Formula::new("=TIME(2,30,0)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Time(NaiveTime::from_hms_opt(2, 30, 0).unwrap()));
@@ -411,7 +413,10 @@ mod tests {
         let formula = Formula::new("=TIMEVALUE('02:30:00')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Time(NaiveTime::from_hms_opt(2, 30, 0).unwrap()));
+    }
 
+    #[test]
+    fn test_parse_date_and_time_edge_cases() {
         // 2020-01-01 is a Wednesday
         let formula = Formula::new("=WEEKDAY(DATE(2020,1,1))").unwrap();
         let value = formula.parse().unwrap();

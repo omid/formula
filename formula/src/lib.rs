@@ -254,7 +254,6 @@ fn check_nesting(formula: &str) -> Result<()> {
                 chars.next();
             }
             (Some(q), c) if c == q => quote = None,
-            (Some(_), _) => {}
             (None, '\'' | '"') => quote = Some(c),
             (None, '(' | '{') => {
                 depth += 1;
@@ -263,6 +262,7 @@ fn check_nesting(formula: &str) -> Result<()> {
                 }
             }
             (None, ')' | '}') => depth = depth.saturating_sub(1),
+            // the other characters, inside or outside of strings
             _ => {}
         }
     }
@@ -298,7 +298,7 @@ impl<'a> Formula<'a> {
                 rule if Evaluator::dispatch(rule).is_none() => {
                     return Err(error::Error::NotImplemented(format!("{rule:?}")));
                 }
-                Rule::reference if Reference::new(&pair).is_none() => {
+                Rule::reference if Reference::new(pair.clone()).is_none() => {
                     return Err(error::Error::Parser(pair.as_str().to_string()));
                 }
                 _ => {}
@@ -365,7 +365,6 @@ impl<'c> Evaluator<'c> {
     /// The function that evaluates `rule`, `None` for functions that are not implemented yet
     #[allow(clippy::too_many_lines)]
     fn dispatch(rule: Rule) -> Option<Evaluate<'c>> {
-        #[allow(clippy::match_same_arms)]
         let evaluate: Evaluate<'c> = match rule {
             // Operators
             Rule::add => Self::parse_add,

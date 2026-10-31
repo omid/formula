@@ -70,7 +70,7 @@ impl Evaluator<'_> {
         self.parse_unary_number(pair, f64::tanh)
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_pi(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Number(PI))
     }
@@ -106,7 +106,7 @@ impl Evaluator<'_> {
         self.parse_unary_number(pair, |operand| (operand * PI).sqrt())
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unused_self)]
+    #[allow(clippy::unused_self)]
     pub(crate) fn parse_rand(&self, _pair: Pair<Rule>) -> Result<Expr> {
         // 53 random bits scaled into [0, 1)
         let bits = getrandom::u64().map_err(|_| ExprError::Value)?;
@@ -126,7 +126,7 @@ impl Evaluator<'_> {
         self.range_args(pair.into_inner())?
             .into_iter()
             .try_fold(0.0, |sum, value| match value {
-                ArgValue::Single(value) => Ok(sum + as_number(value)?),
+                ArgValue::Single(value) => Ok(sum + as_number(&value)?),
                 ArgValue::InRange(Expr::Number(number)) => Ok(sum + number),
                 ArgValue::InRange(_) => Ok(sum),
             })
@@ -183,7 +183,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_math_types() {
         let formula = Formula::new("=ABS(-1)").unwrap();
         let value = formula.parse().unwrap();

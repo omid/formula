@@ -42,17 +42,17 @@ impl Evaluator<'_> {
         string
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_true(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Bool(true))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_false(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Bool(false))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
+    #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn parse_array(&self, pair: Pair<Rule>) -> Result<Expr> {
         let inner = pair.into_inner();
 
@@ -90,7 +90,6 @@ mod tests {
     use crate::{ExprError, Formula};
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_basic_types() {
         let formula = Formula::new("=TRUE").unwrap();
         let value = formula.parse().unwrap();

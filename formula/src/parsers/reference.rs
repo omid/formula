@@ -22,11 +22,11 @@ pub(crate) struct Reference {
 
 impl Reference {
     /// `None` if the reference is outside of an Excel sheet, like `XFE1` or `A1048577`
-    pub(crate) fn new(pair: &Pair<Rule>) -> Option<Self> {
+    pub(crate) fn new(pair: Pair<Rule>) -> Option<Self> {
         let mut sheet = None;
         let mut rows = Vec::with_capacity(2);
         let mut columns = Vec::with_capacity(2);
-        for part in pair.clone().into_inner() {
+        for part in pair.into_inner() {
             match part.as_rule() {
                 Rule::sheet_name => sheet = Some(part.as_str().to_string()),
                 Rule::quoted_sheet_name => sheet = Some(part.as_str().replace("''", "'")),
@@ -68,10 +68,9 @@ impl Reference {
 
 impl Evaluator<'_> {
     /// A cell is its value, a range is its rows like array literals: `A1:B2` is like `{A1, B1; A2, B2}`
-    #[allow(clippy::needless_pass_by_value)]
     pub(crate) fn parse_reference(&self, pair: Pair<Rule>) -> Result<Expr> {
         // `Formula::new` rejected the references outside of a sheet
-        let reference = Reference::new(&pair).ok_or(ExprError::Reference)?;
+        let reference = Reference::new(pair).ok_or(ExprError::Reference)?;
         let sheet = reference.sheet.as_deref();
         let size = self.cells.size(sheet).ok_or(ExprError::Reference)?;
         let read = |row, column| self.cells.cell(sheet, row, column).unwrap_or(Expr::Null);

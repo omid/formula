@@ -48,7 +48,7 @@ impl Evaluator<'_> {
         }
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     pub(crate) fn parse_na(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Error(ExprError::NotAvailable))
     }
@@ -72,7 +72,7 @@ impl Evaluator<'_> {
         let values = self.range_args(pair.into_inner())?;
         // like Excel, numbers in references and arrays are booleans, their texts and empty cells don't count
         let mut bools = values.into_iter().filter_map(|value| match value {
-            ArgValue::Single(value) => Some(as_bool(value)),
+            ArgValue::Single(value) => Some(as_bool(&value)),
             ArgValue::InRange(Expr::Bool(bool)) => Some(Ok(bool)),
             ArgValue::InRange(Expr::Number(number)) => Some(Ok(number != 0.0)),
             ArgValue::InRange(_) => None,
@@ -89,7 +89,6 @@ mod tests {
     use crate::{ExprError, Formula};
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_bool_types() {
         let formula = Formula::new("=AND(TRUE, FALSE(), TRUE)").unwrap();
         let value = formula.parse().unwrap();

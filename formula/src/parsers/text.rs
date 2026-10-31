@@ -397,7 +397,6 @@ mod tests {
     use crate::Formula;
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_text_types() {
         let formula = Formula::new("=LEFT('hello')").unwrap();
         let value = formula.parse().unwrap();
@@ -520,7 +519,10 @@ mod tests {
 
         let formula = Formula::new("=FIND('z', 'abc')").unwrap();
         assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+    }
 
+    #[test]
+    fn test_parse_text_formatting_types() {
         let formula = Formula::new("=FIXED(123456.673, 2)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("123,456.67".to_string()));
@@ -632,7 +634,10 @@ mod tests {
         let formula = Formula::new("=LEFTB('hi', 5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("hi".to_string()));
+    }
 
+    #[test]
+    fn test_parse_text_edge_cases() {
         let formula = Formula::new("=LEFT('hi', -1)").unwrap();
         assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 

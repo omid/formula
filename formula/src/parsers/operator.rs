@@ -106,7 +106,6 @@ mod tests {
     use crate::{ExprError, Formula};
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_operator_types() {
         let formula = Formula::new("=F.ADD(5,6)").unwrap();
         let value = formula.parse().unwrap();
