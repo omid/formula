@@ -15,7 +15,7 @@ So far we have the following features:
 - 18 date time functions
 - 26 text functions
 - 26 math functions
-- 7 logical functions
+- 8 logical functions
 - 2 web functions
 - plus all arithmetic and comparison operators
 
