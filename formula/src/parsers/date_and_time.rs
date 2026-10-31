@@ -395,5 +395,44 @@ mod tests {
 
         let formula = Formula::new("=WEEKNUM(DATE(2020,1,1))").unwrap();
         assert!(matches!(formula.parse(), Err(Error::NotImplemented(_))));
+
+        let formula = Formula::new("=EDATE(DATE(2020,1,15),-1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2019, 12, 15).unwrap()));
+
+        let formula = Formula::new("=EDATE(DATE(2020,1,31),1.9)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2020, 2, 29).unwrap()));
+
+        let formula = Formula::new("=EOMONTH(DATE(2020,1,15),-0.5)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Date(NaiveDate::from_ymd_opt(2020, 1, 31).unwrap()));
+
+        let formula = Formula::new("=EDATE(DATE(2020,1,15),1e20)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=TIMEVALUE('25:00')").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=DATEVALUE('13/1/2020')").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=WEEKDAY('1/1/2020')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(4.0));
+
+        let formula = Formula::new("=DAYS(DATE(2020,1,6), '1/1/2020')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(5.0));
+
+        let formula = Formula::new("=DAYS(DATE(2020,1,6), TRUE)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=WEEKDAY(DATE(2020,1,1), 'a')").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=MONTH(TODAY())").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(f64::from(Utc::now().month())));
     }
 }

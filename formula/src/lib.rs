@@ -380,3 +380,22 @@ impl<'a> Formula<'a> {
         Ok(res)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_not_implemented_functions_are_recognized() {
+        for formula in [
+            "=FLOOR.PRECISE(1)",
+            "=SWITCH(1, 1, 'a')",
+            "=SWITCH(1, 1, 'a', 2, 'b', 'c')",
+            "=WORKDAY(DATE(2020,1,1), 5)",
+            "=WORKDAY.INTL(DATE(2020,1,1), 5)",
+        ] {
+            let formula = Formula::new(formula).unwrap();
+            assert!(matches!(formula.parse(), Err(error::Error::NotImplemented(_))));
+        }
+    }
+}

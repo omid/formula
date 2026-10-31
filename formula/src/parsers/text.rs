@@ -656,5 +656,88 @@ mod tests {
         let formula = Formula::new("=PROPER(\"o'neil 2-way\")").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("O'Neil 2-Way".to_string()));
+
+        let formula = Formula::new("=LEFTB('hi', 5)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("hi".to_string()));
+
+        let formula = Formula::new("=LEFT('hi', -1)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=MIDB('abc', 10, 2)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String(String::new()));
+
+        let formula = Formula::new("=MID('abc', 1, -1)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=REPLACEB('abc', 10, 1, 'x')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("abcx".to_string()));
+
+        let formula = Formula::new("=REPLACE('abc', 2, 10, 'x')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("ax".to_string()));
+
+        let formula = Formula::new("=FIND('a', 'abc', 4)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=FIND('a', 'abc', 0)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=FIND('', 'abc', 2)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(2.0));
+
+        let formula = Formula::new("=REPT('a', 32767)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("a".repeat(32_767)));
+
+        let formula = Formula::new("=REPT('a', 32768)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=REPT('a', -1)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=FIXED(1234567.891, 1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("1,234,567.9".to_string()));
+
+        let formula = Formula::new("=FIXED(-1234.5, 1, TRUE)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("-1234.5".to_string()));
+
+        let formula = Formula::new("=FIXED(1234.5, -1000)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("0".to_string()));
+
+        let formula = Formula::new("=FIXED(0.125)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("0.13".to_string()));
+
+        let formula = Formula::new("=CHAR(0)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=UNICHAR(55296)").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=CODE('')").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=CODE('é')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(233.0));
+
+        let formula = Formula::new("=TRIM('\\ta  b\\t')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\ta b\t".to_string()));
+
+        let formula = Formula::new("=PROPER('  two   spaces ')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("  Two   Spaces ".to_string()));
+
+        let formula = Formula::new("=TEXTJOIN('-', TRUE, '', '')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String(String::new()));
     }
 }

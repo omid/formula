@@ -171,5 +171,24 @@ mod tests {
         let formula = Formula::new("=F.NEGATE(5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(-5.0));
+
+        let formula = Formula::new("=F.LT('a','b')").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.GTE(DATE(2020,1,2),DATE(2020,1,1))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.EQ(1e-20,2e-20)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(false));
+
+        let formula = Formula::new("=F.NE(TRUE,FALSE)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Bool(true));
+
+        let formula = Formula::new("=F.ADD(F.DIV(1,0),1)").unwrap();
+        assert!(formula.parse().is_err());
     }
 }

@@ -160,5 +160,33 @@ mod tests {
         let formula = Formula::new("=RAND()").unwrap();
         let value = formula.parse().unwrap();
         assert!(matches!(value, Expr::Number(n) if (0.0..1.0).contains(&n)));
+
+        let formula = Formula::new("=F.POW(10, 400)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Null);
+
+        let formula = Formula::new("=SUM(1e308, 1e308)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Null);
+
+        let formula = Formula::new("=MOD(5.5, 2)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(1.5));
+
+        let formula = Formula::new("=SIGN(-0.5)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(-1.0));
+
+        let formula = Formula::new("=SIGN(0)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(0.0));
+
+        let formula = Formula::new("=SQRTPI(-1)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Null);
+
+        let formula = Formula::new("=LOG(8, 2)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(3.0));
     }
 }

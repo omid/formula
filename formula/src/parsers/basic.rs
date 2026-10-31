@@ -142,5 +142,21 @@ mod tests {
                 Expr::Array(vec![Expr::Number(2.0), Expr::Bool(true)]),
             ])
         );
+
+        let formula = Formula::new("=\"say \\\"hi\\\"\"").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("say \"hi\"".to_string()));
+
+        let formula = Formula::new("='\\uD800'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\u{FFFD}".to_string()));
+
+        let formula = Formula::new("=''").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String(String::new()));
+
+        let formula = Formula::new("= 1 ").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(1.0));
     }
 }

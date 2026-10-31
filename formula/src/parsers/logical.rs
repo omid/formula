@@ -151,5 +151,22 @@ mod tests {
 
         let formula = Formula::new("=AND(TRUE, 1)").unwrap();
         assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=IF(1, 'a', 'b')").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=IF(FALSE, F.ADD('a', 1), 2)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(2.0));
+
+        let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.DIV(1, 0))").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Null);
+
+        let formula = Formula::new("=IFERROR(F.ADD('a', 1), F.ADD('a', 1))").unwrap();
+        assert!(formula.parse().is_err());
+
+        let formula = Formula::new("=XOR(TRUE, 'a')").unwrap();
+        assert!(formula.parse().is_err());
     }
 }
