@@ -21,6 +21,7 @@ Thanks for contributing!
 - Before committing changes, make sure to run `make check` to check and format your changes
 - Make sure to run `make test` to run the tests, and `make test_wasm` if you change `formula-wasm`
 - Run `make coverage` to see the test coverage and the lines that the tests miss
+- If you change how formulas are evaluated, compare `make bench` before and after your change, see the `Makefile`
 - Add an entry to the `CHANGELOG.md` file
 - The `README.md` is generated using `cargo-readme` automatically after the PR is merged into main.
 - Pull Requests should be made against main.

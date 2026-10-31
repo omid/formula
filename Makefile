@@ -8,6 +8,11 @@ test:
      done
 	@cargo doc --no-deps --all-features --examples
 
+# Runs the benchmarks. To compare with another version, check it out and run `make bench args="--save-baseline before"`,
+# then check out this version again and run `make bench args="--baseline before"`
+bench:
+	@cargo bench -p formula --bench formula -- $(args)
+
 # Measures the test coverage of the native tests and lists the lines they miss, needs `cargo install cargo-llvm-cov`.
 # formula-wasm's JavaScript side only runs in `make test_wasm`, so it counts as missed here.
 coverage:

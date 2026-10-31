@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `formula-wasm`'s tests run in Node, with `make test_wasm` and in CI
 - A test that 20,000 random formulas never panic, and tests for the functions and branches that had none
 - `make coverage` measures the test coverage with `cargo-llvm-cov`
+- Benchmarks with `criterion`, `make bench` runs them
 
 ### Changed
 
@@ -25,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SUM`, `AND`, `OR`, `XOR`, `CONCAT`, `CONCATENATE` and `TEXTJOIN` accept ranges and arrays, and skip their values
   of other types like Excel, e.g. `SUM({1, 'a'})` is 1 instead of `#VALUE!`
 - `CONCAT`, `CONCATENATE` and `TEXTJOIN` are `#VALUE!` for texts longer than Excel's 32,767 characters
+- `SUM`, `AND`, `OR`, `XOR`, `CONCAT` and `TEXTJOIN` read the cells of ranges one by one, without copying the range,
+  e.g. `SUM(A:A)` of 100,000 numbers is about 5 times faster. `CONCAT` and `TEXTJOIN` stop at the maximum text length
+- `formula-wasm` converts a cell from JavaScript only when the formula reads it, e.g. `=A1` with a 10,000 × 10 table
+  is about 20 times faster
+- `LEFT`, `RIGHT`, `MID`, `REPLACE` and `TRIM` copy less, they are 25% to 45% faster on long texts
 
 ### Fixed
 
