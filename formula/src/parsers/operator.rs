@@ -65,10 +65,13 @@ impl Evaluator<'_> {
     /// Compares two values of the same type. Like Excel:
     /// - numbers that only differ by floating point noise (e.g. `0.1 + 0.2` and `0.3`) are equal
     /// - texts are compared case-insensitively, `EXACT` is the case-sensitive comparison
+    /// - an empty cell is 0, an empty text or FALSE, depending on the other value
     fn parse_comparison(&self, pair: Pair<Rule>, check: fn(Ordering) -> bool) -> Result<Expr> {
         let mut args = pair.into_inner();
         let operand1 = self.get_formula(&mut args)?;
         let operand2 = self.get_formula(&mut args)?;
+        let operand1 = Self::fill_empty(operand1, &operand2);
+        let operand2 = Self::fill_empty(operand2, &operand1);
 
         let ordering = match (&operand1, &operand2) {
             (Expr::Number(n1), Expr::Number(n2)) if (n1 - n2).abs() <= 1e-15 * n1.abs().max(n2.abs()) => {
@@ -79,10 +82,21 @@ impl Evaluator<'_> {
             | (Expr::Time(_), Expr::Time(_))
             | (Expr::Datetime(_), Expr::Datetime(_))
             | (Expr::Date(_), Expr::Date(_))
-            | (Expr::Bool(_), Expr::Bool(_)) => operand1.partial_cmp(&operand2),
+            | (Expr::Bool(_), Expr::Bool(_))
+            | (Expr::Null, Expr::Null) => operand1.partial_cmp(&operand2),
             _ => None,
         };
         ordering.map(|o| Expr::Bool(check(o))).ok_or(ExprError::Value)
+    }
+
+    /// An empty cell as the empty value of `other`'s type
+    fn fill_empty(value: Expr, other: &Expr) -> Expr {
+        match (value, other) {
+            (Expr::Null, Expr::Number(_)) => Expr::Number(0.0),
+            (Expr::Null, Expr::String(_)) => Expr::String(String::new()),
+            (Expr::Null, Expr::Bool(_)) => Expr::Bool(false),
+            (value, _) => value,
+        }
     }
 }
 

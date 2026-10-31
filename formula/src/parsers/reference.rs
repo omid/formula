@@ -185,6 +185,49 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_cells() {
+        let time = |hour, minute| Expr::Time(chrono::NaiveTime::from_hms_opt(hour, minute, 0).unwrap());
+
+        // 0 in math
+        assert_eq!(parse("=F.ADD(B2, 1)"), Expr::Number(1.0));
+        assert_eq!(parse("=ABS(D1)"), Expr::Number(0.0));
+        assert_eq!(parse("=SUM(B2, 1)"), Expr::Number(1.0));
+        assert_eq!(parse("=F.DIV(1, B2)"), Expr::Error(ExprError::DivisionByZero));
+        assert_eq!(parse("=LN(B2)"), Expr::Error(ExprError::Number));
+        assert_eq!(parse("=TIME(B2, 30, B2)"), time(0, 30));
+
+        // an empty text
+        assert_eq!(parse("=LEN(B2)"), Expr::Number(0.0));
+        assert_eq!(parse("=UPPER(B2)"), Expr::from(""));
+        assert_eq!(parse("=CONCAT(B2, 'x')"), Expr::from("x"));
+        assert_eq!(parse("=EXACT(B2, '')"), Expr::Bool(true));
+        assert_eq!(parse("=TEXTJOIN(B2, TRUE, 'a', B2, 'b')"), Expr::from("ab"));
+        assert_eq!(parse("=TEXTJOIN('-', FALSE, 'a', B2, 'b')"), Expr::from("a--b"));
+        assert_eq!(parse("=LEFT('abc', B2)"), Expr::from(""));
+        assert_eq!(parse("=REPT('a', B2)"), Expr::from(""));
+        assert_eq!(parse("=ENCODEURL(B2)"), Expr::from(""));
+
+        // FALSE
+        assert_eq!(parse("=IF(B2, 'yes', 'no')"), Expr::from("no"));
+        assert_eq!(parse("=NOT(B2)"), Expr::Bool(true));
+        assert_eq!(parse("=FIXED(1234.5, 1, B2)"), Expr::from("1,234.5"));
+
+        // compared like the other value
+        assert_eq!(parse("=F.EQ(B2, 0)"), Expr::Bool(true));
+        assert_eq!(parse("=F.EQ(0, B2)"), Expr::Bool(true));
+        assert_eq!(parse("=F.EQ(B2, '')"), Expr::Bool(true));
+        assert_eq!(parse("=F.EQ(B2, FALSE)"), Expr::Bool(true));
+        assert_eq!(parse("=F.EQ(B2, D1)"), Expr::Bool(true));
+        assert_eq!(parse("=F.LT(B2, 1)"), Expr::Bool(true));
+        assert_eq!(parse("=F.GT('a', B2)"), Expr::Bool(true));
+        assert_eq!(parse("=F.EQ(B2, DATE(2020, 1, 1))"), Expr::Error(ExprError::Value));
+
+        // not a date
+        assert_eq!(parse("=YEAR(B2)"), Expr::Error(ExprError::Value));
+        assert_eq!(parse("=DATEVALUE(B2)"), Expr::Error(ExprError::Value));
+    }
+
+    #[test]
     fn test_ranges() {
         // a single row is flat, like array literals
         assert_eq!(parse("=A1:C1"), row(&[1.into(), 2.into(), 3.into()]));

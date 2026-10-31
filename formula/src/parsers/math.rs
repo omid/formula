@@ -1,4 +1,7 @@
-use super::{Evaluator, Result, helper::number};
+use super::{
+    Evaluator, Result,
+    helper::{as_number, number},
+};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 use std::f64::consts::PI;
@@ -113,10 +116,7 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_sum(&self, pair: Pair<Rule>) -> Result<Expr> {
         pair.into_inner()
-            .try_fold(0.0, |sum, arg| match self.parse_pair(arg)? {
-                Expr::Number(operand) => Ok(sum + operand),
-                _ => Err(ExprError::Value),
-            })
+            .try_fold(0.0, |sum, arg| Ok(sum + as_number(self.parse_pair(arg)?)?))
             .map(number)
     }
 }

@@ -21,22 +21,19 @@ impl Evaluator<'_> {
     pub(crate) fn parse_weekday(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
         let date = Self::to_date(self.get_formula(&mut args)?)?;
-        let return_type = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let return_type = self.get_opt_number(&mut args, 1.0)?;
 
         let weekday = date.weekday();
-        let weekday = match return_type {
-            Expr::Number(return_type) => match return_type as u32 {
-                1 | 17 => weekday.number_from_sunday(),
-                2 | 11 => weekday.number_from_monday(),
-                3 => weekday.num_days_from_monday(),
-                12 => weekday.days_since(Weekday::Tue) + 1,
-                13 => weekday.days_since(Weekday::Wed) + 1,
-                14 => weekday.days_since(Weekday::Thu) + 1,
-                15 => weekday.days_since(Weekday::Fri) + 1,
-                16 => weekday.days_since(Weekday::Sat) + 1,
-                _ => return Ok(Expr::Error(ExprError::Number)),
-            },
-            _ => return Err(ExprError::Value),
+        let weekday = match return_type as u32 {
+            1 | 17 => weekday.number_from_sunday(),
+            2 | 11 => weekday.number_from_monday(),
+            3 => weekday.num_days_from_monday(),
+            12 => weekday.days_since(Weekday::Tue) + 1,
+            13 => weekday.days_since(Weekday::Wed) + 1,
+            14 => weekday.days_since(Weekday::Thu) + 1,
+            15 => weekday.days_since(Weekday::Fri) + 1,
+            16 => weekday.days_since(Weekday::Sat) + 1,
+            _ => return Ok(Expr::Error(ExprError::Number)),
         };
         Ok(Expr::Number(f64::from(weekday)))
     }
@@ -83,28 +80,22 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_timevalue(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
+        let timestring = self.get_text(&mut args)?;
 
-        match self.get_formula(&mut args)? {
-            Expr::String(timestring) => Ok(Expr::Time(Self::timestring_to_naivetime(&timestring)?)),
-            _ => Err(ExprError::Value),
-        }
+        Ok(Expr::Time(Self::timestring_to_naivetime(&timestring)?))
     }
 
     pub(crate) fn parse_datevalue(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
+        let datestring = self.get_text(&mut args)?;
 
-        match self.get_formula(&mut args)? {
-            Expr::String(datestring) => Ok(Expr::Date(Self::datestring_to_naivedate(&datestring)?)),
-            _ => Err(ExprError::Value),
-        }
+        Ok(Expr::Date(Self::datestring_to_naivedate(&datestring)?))
     }
 
     pub(crate) fn parse_eomonth(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
         let date = Self::to_date(self.get_formula(&mut args)?)?;
-        let Expr::Number(num) = self.get_formula(&mut args)? else {
-            return Err(ExprError::Value);
-        };
+        let num = self.get_number(&mut args)?;
 
         // the day before the first day of the next month
         let date = date
@@ -118,9 +109,7 @@ impl Evaluator<'_> {
     pub(crate) fn parse_edate(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
         let date = Self::to_date(self.get_formula(&mut args)?)?;
-        let Expr::Number(num) = self.get_formula(&mut args)? else {
-            return Err(ExprError::Value);
-        };
+        let num = self.get_number(&mut args)?;
 
         Ok(Self::shift_months(date, num).map_or(Expr::Error(ExprError::Number), Expr::Date))
     }
@@ -156,13 +145,10 @@ impl Evaluator<'_> {
     /// Like Excel, the parts overflow into each other (e.g. 90 minutes) and the time wraps around midnight
     pub(crate) fn parse_time(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let hour = self.get_formula(&mut args)?;
-        let minute = self.get_formula(&mut args)?;
-        let second = self.get_formula(&mut args)?;
+        let hour = self.get_number(&mut args)?;
+        let minute = self.get_number(&mut args)?;
+        let second = self.get_number(&mut args)?;
 
-        let (Expr::Number(hour), Expr::Number(minute), Expr::Number(second)) = (hour, minute, second) else {
-            return Err(ExprError::Value);
-        };
         let seconds = hour.trunc() * 3600.0 + minute.trunc() * 60.0 + second.trunc();
         if seconds < 0.0 || [hour, minute, second].iter().any(|part| *part > MAX_TIME_PART) {
             return Ok(Expr::Error(ExprError::Number));
@@ -177,13 +163,10 @@ impl Evaluator<'_> {
     /// e.g. `DATE(2020, 13, 1)` is 2021-01-01 and `DATE(2020, 1, 0)` is 2019-12-31
     pub(crate) fn parse_date(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let year = self.get_formula(&mut args)?;
-        let month = self.get_formula(&mut args)?;
-        let day = self.get_formula(&mut args)?;
+        let year = self.get_number(&mut args)?;
+        let month = self.get_number(&mut args)?;
+        let day = self.get_number(&mut args)?;
 
-        let (Expr::Number(year), Expr::Number(month), Expr::Number(day)) = (year, month, day) else {
-            return Err(ExprError::Value);
-        };
         let date = i32::try_from(year.trunc() as i64)
             .ok()
             .and_then(|year| NaiveDate::from_ymd_opt(year, 1, 1))

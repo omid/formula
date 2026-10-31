@@ -1,5 +1,7 @@
 use super::{Evaluator, Result};
-use crate::{Expr, ExprError, Rule};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::ExprError;
+use crate::{Expr, Rule};
 use pest::iterators::Pair;
 use urlencoding::encode;
 
@@ -7,10 +9,9 @@ impl Evaluator<'_> {
     pub(crate) fn parse_encodeurl(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match self.get_formula(&mut args)? {
-            Expr::String(url) => Ok(Expr::String(encode(&url).into_owned())),
-            _ => Err(ExprError::Value),
-        }
+        let url = self.get_text(&mut args)?;
+
+        Ok(Expr::String(encode(&url).into_owned()))
     }
 
     // TODO a draft, `Formula::new` rejects it as not implemented yet
@@ -34,10 +35,9 @@ impl Evaluator<'_> {
     pub(crate) fn parse_webservice(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match self.get_formula(&mut args)? {
-            Expr::String(url) => Self::web_request(&url).map(Expr::String),
-            _ => Err(ExprError::Value),
-        }
+        let url = self.get_text(&mut args)?;
+
+        Self::web_request(&url).map(Expr::String)
     }
 
     /// Like Excel, failed requests are `#VALUE!`, also HTTP error responses (4xx, 5xx) instead of the error page

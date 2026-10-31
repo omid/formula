@@ -1,4 +1,4 @@
-use super::{Evaluator, Result};
+use super::{Evaluator, Result, helper::as_bool};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
@@ -18,10 +18,7 @@ impl Evaluator<'_> {
     pub(crate) fn parse_not(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match self.get_formula(&mut args)? {
-            Expr::Bool(b) => Ok(Expr::Bool(!b)),
-            _ => Err(ExprError::Value),
-        }
+        Ok(Expr::Bool(!self.get_bool(&mut args)?))
     }
 
     /// Falls back on any spreadsheet error
@@ -56,23 +53,20 @@ impl Evaluator<'_> {
     /// Only the selected branch is evaluated
     pub(crate) fn parse_if(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let condition = self.get_formula(&mut args)?;
+        let condition = self.get_bool(&mut args)?;
         let true_value = args.next().ok_or(ExprError::Value)?;
         let false_value = args.next();
 
-        match condition {
-            Expr::Bool(true) => self.parse_pair(true_value),
-            Expr::Bool(false) => false_value.map_or(Ok(Expr::Bool(false)), |pair| self.parse_pair(pair)),
-            _ => Err(ExprError::Value),
+        if condition {
+            self.parse_pair(true_value)
+        } else {
+            false_value.map_or(Ok(Expr::Bool(false)), |pair| self.parse_pair(pair))
         }
     }
 
     /// Combines one or more boolean arguments
     fn fold_bools(&self, pair: Pair<Rule>, f: impl Fn(bool, bool) -> bool) -> Result<Expr> {
-        let mut bools = pair.into_inner().map(|arg| match self.parse_pair(arg)? {
-            Expr::Bool(b) => Ok(b),
-            _ => Err(ExprError::Value),
-        });
+        let mut bools = pair.into_inner().map(|arg| as_bool(self.parse_pair(arg)?));
         let first = bools.next().ok_or(ExprError::Value)??;
 
         bools.try_fold(first, |bool, b| Ok(f(bool, b?))).map(Expr::Bool)

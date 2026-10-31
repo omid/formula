@@ -1,4 +1,4 @@
-use super::{Evaluator, Result};
+use super::{Evaluator, Result, helper::as_text};
 use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 
@@ -10,91 +10,89 @@ const MAX_FIXED_DECIMALS: f64 = 127.0;
 impl Evaluator<'_> {
     pub(crate) fn parse_left(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let num_chars = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
+        let chars = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_chars) {
-            (Expr::String(text), Expr::Number(chars)) if chars >= 0.0 => text.chars().take(chars as usize).collect(),
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if chars >= 0.0 {
+            Ok(Expr::String(text.chars().take(chars as usize).collect()))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_leftb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let num_bytes = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
+        let bytes = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_bytes) {
-            (Expr::String(text), Expr::Number(bytes)) if bytes >= 0.0 => {
-                let end = (bytes as usize).min(text.len());
-                String::from_utf8_lossy(&text.as_bytes()[..end]).into_owned()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if bytes >= 0.0 {
+            let end = (bytes as usize).min(text.len());
+            Ok(Expr::String(
+                String::from_utf8_lossy(&text.as_bytes()[..end]).into_owned(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_right(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let num_chars = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
+        let chars = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_chars) {
-            (Expr::String(text), Expr::Number(chars)) if chars >= 0.0 => {
-                let start = text.chars().count().saturating_sub(chars as usize);
-                text.chars().skip(start).collect()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if chars >= 0.0 {
+            let start = text.chars().count().saturating_sub(chars as usize);
+            Ok(Expr::String(text.chars().skip(start).collect()))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_rightb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let num_bytes = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
+        let bytes = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_bytes) {
-            (Expr::String(text), Expr::Number(bytes)) if bytes >= 0.0 => {
-                let start = text.len().saturating_sub(bytes as usize);
-                String::from_utf8_lossy(&text.as_bytes()[start..]).into_owned()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if bytes >= 0.0 {
+            let start = text.len().saturating_sub(bytes as usize);
+            Ok(Expr::String(
+                String::from_utf8_lossy(&text.as_bytes()[start..]).into_owned(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_mid(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let start = self.get_formula(&mut args)?;
-        let len = self.get_formula(&mut args)?;
+        let text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
 
-        let text = match (text, start, len) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len)) if start >= 1.0 && len >= 0.0 => {
-                text.chars().skip(start as usize - 1).take(len as usize).collect()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            Ok(Expr::String(
+                text.chars().skip(start as usize - 1).take(len as usize).collect(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_midb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let start = self.get_formula(&mut args)?;
-        let len = self.get_formula(&mut args)?;
+        let text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
 
-        let text = match (text, start, len) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len)) if start >= 1.0 && len >= 0.0 => {
-                let start = (start as usize - 1).min(text.len());
-                let end = start.saturating_add(len as usize).min(text.len());
-                String::from_utf8_lossy(&text.as_bytes()[start..end]).into_owned()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            let start = (start as usize - 1).min(text.len());
+            let end = start.saturating_add(len as usize).min(text.len());
+            Ok(Expr::String(
+                String::from_utf8_lossy(&text.as_bytes()[start..end]).into_owned(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     /// `CHAR` covers the single byte range, `UNICHAR` covers every code point
@@ -106,8 +104,8 @@ impl Evaluator<'_> {
         };
         let mut args = pair.into_inner();
 
-        match self.get_formula(&mut args)? {
-            Expr::Number(number) if (1.0..=max).contains(&number) => char::from_u32(number as u32)
+        match self.get_number(&mut args)? {
+            number if (1.0..=max).contains(&number) => char::from_u32(number as u32)
                 .map(|c| Expr::String(c.to_string()))
                 .ok_or(ExprError::Value),
             _ => Err(ExprError::Value),
@@ -117,37 +115,28 @@ impl Evaluator<'_> {
     pub(crate) fn parse_code(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match self.get_formula(&mut args)? {
-            Expr::String(text) => text
-                .chars()
-                .next()
-                .map(|c| Expr::Number(f64::from(u32::from(c))))
-                .ok_or(ExprError::Value),
-            _ => Err(ExprError::Value),
-        }
+        self.get_text(&mut args)?
+            .chars()
+            .next()
+            .map(|c| Expr::Number(f64::from(u32::from(c))))
+            .ok_or(ExprError::Value)
     }
 
     pub(crate) fn parse_concat(&self, pair: Pair<Rule>) -> Result<Expr> {
         pair.into_inner()
-            .try_fold(String::new(), |mut text, arg| match self.parse_pair(arg)? {
-                Expr::String(t) => {
-                    text.push_str(&t);
-                    Ok(text)
-                }
-                _ => Err(ExprError::Value),
+            .try_fold(String::new(), |mut text, arg| {
+                text.push_str(&as_text(self.parse_pair(arg)?)?);
+                Ok(text)
             })
             .map(Expr::String)
     }
 
     pub(crate) fn parse_exact(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text1 = self.get_formula(&mut args)?;
-        let text2 = self.get_formula(&mut args)?;
+        let text1 = self.get_text(&mut args)?;
+        let text2 = self.get_text(&mut args)?;
 
-        match (text1, text2) {
-            (Expr::String(text1), Expr::String(text2)) => Ok(Expr::Bool(text1 == text2)),
-            _ => Err(ExprError::Value),
-        }
+        Ok(Expr::Bool(text1 == text2))
     }
 
     pub(crate) fn parse_find(&self, pair: Pair<Rule>) -> Result<Expr> {
@@ -168,28 +157,30 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_fixed(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let number = self.get_formula(&mut args)?;
-        let decimals = self.get_opt_formula_with_default(&mut args, Expr::Number(2.0))?;
-        let no_commas = self.get_opt_formula_with_default(&mut args, Expr::Bool(false))?;
+        let number = self.get_number(&mut args)?;
+        let decimals = self.get_opt_number(&mut args, 2.0)?;
+        let no_commas = self.get_opt_bool(&mut args, false)?;
 
-        let text = match (number, decimals, no_commas) {
-            (Expr::Number(number), Expr::Number(decimals), Expr::Bool(no_commas)) if decimals <= MAX_FIXED_DECIMALS => {
-                // Excel rounds half away from zero, Rust's formatter doesn't
-                let decimals = decimals.trunc().max(-308.0);
-                let factor = 10f64.powf(decimals);
-                let rounded = (number * factor).round() / factor;
-                let number = match rounded {
-                    0.0 => 0.0, // avoid "-0"
-                    rounded if rounded.is_finite() => rounded,
-                    _ => number,
-                };
-
-                let text = format!("{number:.0$}", decimals.max(0.0) as usize);
-                if no_commas { text } else { Self::group_thousands(&text) }
-            }
+        let decimals = match decimals {
+            decimals if decimals <= MAX_FIXED_DECIMALS => decimals.trunc().max(-308.0),
             _ => return Err(ExprError::Value),
         };
-        Ok(Expr::String(text))
+
+        // Excel rounds half away from zero, Rust's formatter doesn't
+        let factor = 10f64.powf(decimals);
+        let rounded = (number * factor).round() / factor;
+        let number = match rounded {
+            0.0 => 0.0, // avoid "-0"
+            rounded if rounded.is_finite() => rounded,
+            _ => number,
+        };
+
+        let text = format!("{number:.0$}", decimals.max(0.0) as usize);
+        Ok(Expr::String(if no_commas {
+            text
+        } else {
+            Self::group_thousands(&text)
+        }))
     }
 
     pub(crate) fn parse_len(&self, pair: Pair<Rule>) -> Result<Expr> {
@@ -210,80 +201,62 @@ impl Evaluator<'_> {
 
     pub(crate) fn parse_rept(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let rept = self.get_formula(&mut args)?;
+        let text = self.get_text(&mut args)?;
+        let rept = self.get_number(&mut args)?;
 
-        let text = match (text, rept) {
-            (Expr::String(text), Expr::Number(rept))
-                if rept >= 0.0 && text.chars().count().saturating_mul(rept as usize) <= MAX_TEXT_LEN =>
-            {
-                text.repeat(rept as usize)
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if rept >= 0.0 && text.chars().count().saturating_mul(rept as usize) <= MAX_TEXT_LEN {
+            Ok(Expr::String(text.repeat(rept as usize)))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_replace(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let start = self.get_formula(&mut args)?;
-        let len = self.get_formula(&mut args)?;
-        let new_text = self.get_formula(&mut args)?;
+        let text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
+        let new_text = self.get_text(&mut args)?;
 
-        let text = match (text, start, len, new_text) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text))
-                if start >= 1.0 && len >= 0.0 =>
-            {
-                let mut chars = text.chars();
-                let start_text = chars.by_ref().take(start as usize - 1).collect::<String>();
-                let end_text = chars.skip(len as usize).collect::<String>();
-                format!("{start_text}{new_text}{end_text}")
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            let mut chars = text.chars();
+            let start_text = chars.by_ref().take(start as usize - 1).collect::<String>();
+            let end_text = chars.skip(len as usize).collect::<String>();
+            Ok(Expr::String(format!("{start_text}{new_text}{end_text}")))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_replaceb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = self.get_formula(&mut args)?;
-        let start = self.get_formula(&mut args)?;
-        let len = self.get_formula(&mut args)?;
-        let new_text = self.get_formula(&mut args)?;
+        let text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
+        let new_text = self.get_text(&mut args)?;
 
-        let text = match (text, start, len, new_text) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text))
-                if start >= 1.0 && len >= 0.0 =>
-            {
-                let bytes = text.as_bytes();
-                let start = (start as usize - 1).min(bytes.len());
-                let end = start.saturating_add(len as usize).min(bytes.len());
-                format!(
-                    "{}{}{}",
-                    String::from_utf8_lossy(&bytes[..start]),
-                    new_text,
-                    String::from_utf8_lossy(&bytes[end..])
-                )
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            let bytes = text.as_bytes();
+            let start = (start as usize - 1).min(bytes.len());
+            let end = start.saturating_add(len as usize).min(bytes.len());
+            Ok(Expr::String(format!(
+                "{}{}{}",
+                String::from_utf8_lossy(&bytes[..start]),
+                new_text,
+                String::from_utf8_lossy(&bytes[end..])
+            )))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     pub(crate) fn parse_textjoin(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let delim = self.get_formula(&mut args)?;
-        let ignore_empty = self.get_formula(&mut args)?;
+        let delim = self.get_text(&mut args)?;
+        let ignore_empty = self.get_bool(&mut args)?;
 
-        let (Expr::String(delim), Expr::Bool(ignore_empty)) = (delim, ignore_empty) else {
-            return Err(ExprError::Value);
-        };
         let texts = args
-            .map(|arg| match self.parse_pair(arg)? {
-                Expr::String(t) => Ok(t),
-                _ => Err(ExprError::Value),
-            })
+            .map(|arg| as_text(self.parse_pair(arg)?))
             .filter(|t| !(ignore_empty && t.as_ref().is_ok_and(String::is_empty)))
             .collect::<Result<Vec<_>>>()?;
         Ok(Expr::String(texts.join(&delim)))
@@ -330,11 +303,9 @@ impl Evaluator<'_> {
     /// Evaluates a function that takes one text
     fn parse_unary_text(&self, pair: Pair<Rule>, f: impl FnOnce(&str) -> Expr) -> Result<Expr> {
         let mut args = pair.into_inner();
+        let text = self.get_text(&mut args)?;
 
-        match self.get_formula(&mut args)? {
-            Expr::String(text) => Ok(f(&text)),
-            _ => Err(ExprError::Value),
-        }
+        Ok(f(&text))
     }
 
     fn parse_find_text(
@@ -344,19 +315,14 @@ impl Evaluator<'_> {
         find: fn(&str, &str, f64) -> Option<f64>,
     ) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let find_text = self.get_formula(&mut args)?;
-        let within_text = self.get_formula(&mut args)?;
-        let start_num = self.get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let find_text = self.get_text(&mut args)?;
+        let within_text = self.get_text(&mut args)?;
+        let start_num = self.get_opt_number(&mut args, 1.0)?;
 
-        let index = match (find_text, within_text, start_num) {
-            (Expr::String(find_text), Expr::String(within_text), Expr::Number(start_num)) => {
-                if ignore_case {
-                    find(&within_text.to_lowercase(), &find_text.to_lowercase(), start_num)
-                } else {
-                    find(&within_text, &find_text, start_num)
-                }
-            }
-            _ => None,
+        let index = if ignore_case {
+            find(&within_text.to_lowercase(), &find_text.to_lowercase(), start_num)
+        } else {
+            find(&within_text, &find_text, start_num)
         };
         index.map(Expr::Number).ok_or(ExprError::Value)
     }
