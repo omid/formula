@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Table data: formulas can read cells through references like `A1`, `$A$1`, `B3:A1`, `A:C`, `2:3`, `Sheet2!A1`
+  or `'My sheet'!A1:B2`. `Formula::parse_with` reads them from the new `Cells` trait, which rows of values
+  (`Vec<Vec<Expr>>`) implement. A cell is its value and a range is its rows, like array literals
+- `formula-wasm`'s `parse` takes optional rows of values, e.g. `parse('=SUM(A1:B2)', [[1, 2], [3, null]])`
+- `#REF!` (`ExprError::Reference`) for references to sheets that don't exist
+- `Expr` converts from numbers, booleans, texts, dates, times, errors and options, to build table data
+- `formula-wasm`'s tests run in Node, with `make test_wasm` and in CI
+- A test that 20,000 random formulas never panic, and tests for the functions and branches that had none
+- `make coverage` measures the test coverage with `cargo-llvm-cov`
+- Benchmarks with `criterion`, `make bench` runs them
+
+### Changed
+
+- `Formula::parse` takes `&self`, so a formula can be evaluated against many tables
+- Like Excel, empty cells are 0 in math, an empty text in text functions and FALSE in logical functions
+- `SUM`, `AND`, `OR`, `XOR`, `CONCAT`, `CONCATENATE` and `TEXTJOIN` accept ranges and arrays, and skip their values
+  of other types like Excel, e.g. `SUM({1, 'a'})` is 1 instead of `#VALUE!`
+- `CONCAT`, `CONCATENATE` and `TEXTJOIN` are `#VALUE!` for texts longer than Excel's 32,767 characters
+- `SUM`, `AND`, `OR`, `XOR`, `CONCAT` and `TEXTJOIN` read the cells of ranges one by one, without copying the range,
+  e.g. `SUM(A:A)` of 100,000 numbers is about 5 times faster. `CONCAT` and `TEXTJOIN` stop at the maximum text length
+- `formula-wasm` converts a cell from JavaScript only when the formula reads it, e.g. `=A1` with a 10,000 × 10 table
+  is about 20 times faster
+- `LEFT`, `RIGHT`, `MID`, `REPLACE` and `TRIM` copy less, they are 25% to 45% faster on long texts
+
+### Fixed
+
+- `ATAN2` takes the x and then the y coordinate like Excel, e.g. `ATAN2(1, 0)` is 0 instead of π/2,
+  and `ATAN2(0, 0)` is `#DIV/0!`
+
 ## 0.2.0 (2026-10-31)
 
 ### Added

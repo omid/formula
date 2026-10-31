@@ -19,6 +19,7 @@ So far we have the following features:
 - 8 logical functions
 - 2 web functions
 - plus all arithmetic and comparison operators
+- table data, through references like `A1`, `B2:C5`, `A:A` or `'My sheet'!A1`
 
 ### Installation and usage
 
@@ -39,6 +40,26 @@ fn main() -> Result<()> {
 }
 ```
 
+Formulas can read table data through references like `A1`, `$A$1`, `B2:C5`, `A:A`, `2:3`, `Sheet2!A1`
+or `'My sheet'!A1:B2`. Pass rows of values, or implement the `Cells` trait for your own data,
+like a workbook or a database:
+
+```rust
+use formula::{Formula, Expr, Result};
+
+fn main() -> Result<()> {
+    let rows = vec![
+        vec![Expr::from("Apples"), Expr::from(3)],
+        vec![Expr::from("Pears"), Expr::from(2)],
+    ];
+    let formula = Formula::new("=SUM(B1:B2)")?;
+    assert_eq!(formula.parse_with(&rows)?, Expr::Number(5.0));
+    Ok(())
+}
+```
+
+Like Excel, empty cells are 0 in math, an empty text in text functions and FALSE in logical functions.
+
 #### JavaScript
 
 Add this library to your project with `npm install formula-wasm` or add `formula-wasm` to your `package.json` file.
@@ -50,12 +71,16 @@ import { parse } from 'formula-wasm';
 
 const value = parse('=UPPER(TRIM("   Hello "))');
 console.assert(value, "HELLO");
+
+// with table data
+const total = parse('=SUM(B1:B2)', [['Apples', 3], ['Pears', 2]]);
+console.assert(total, 5);
 ```
 
 ### What we do not support, yet:
 
 - We don't support all existing functions in the world, but we would like to add more of them, like Excel functions, Google Sheets functions, and so on
-- At the moment, we don't support table data. It means you need to extract table data and pass theirs values to this library
+- Named ranges, Excel table references like `Sales[Price]`, and references to several sheets like `Sheet1:Sheet3!A1`
 - We do not support simple formulas like `1+1` or as argument like `AND(1>3, 1<3)` or `SUM(2-1, 2)`. Instead, you can use our `F.` functions like `AND(F.GT(1, 3), F.LT(1, 3))` or `SUM(F.SUB(2, 1), 2)`
 - We still do not support parentheses to change the order of operations, but you can use our `F.` functions. So for example instead of `2*(1+1)`, you should use `F.MUL(2, F.ADD(1, 1))`
 
@@ -73,10 +98,13 @@ We would love to have your contribution! Please read our [contributing guideline
 This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) file for more info.
 */
 
+mod cells;
 pub mod error;
 mod parsers;
 
+pub use cells::{Cells, Size};
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
+use parsers::{Evaluator, reference::Reference};
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 
@@ -99,8 +127,10 @@ pub enum Expr {
     Number(f64),
     String(String),
     Bool(bool),
+    /// The rows of a range or an array, e.g. `A1:B2` or `{1,2;3,4}`.
+    /// A single row is flat, e.g. `A1:C1` or `{1,2,3}`.
     Array(Vec<Expr>),
-    /// An empty value
+    /// An empty cell
     Null,
     /// A spreadsheet error like `#DIV/0!`.
     /// Like Excel, it passes through the functions that use it, until `IFERROR`, `IFNA` or the result.
@@ -121,9 +151,12 @@ pub enum Expr {
 pub enum ExprError {
     /// `#DIV/0!`
     DivisionByZero,
-    /// `#VALUE!`, e.g. an argument of the wrong type
+    /// `#VALUE!`, e.g. an argument of the wrong type, or a range where a single value is needed
     Value,
-    /// `#NUM!`, e.g. the square root of a negative number or a result that is too large
+    /// `#REF!`, a reference to a sheet that doesn't exist
+    Reference,
+    /// `#NUM!`, e.g. the square root of a negative number, a result that is too large,
+    /// or a range of more than 1,048,576 cells
     Number,
     /// `#N/A`
     NotAvailable,
@@ -134,10 +167,72 @@ impl std::fmt::Display for ExprError {
         let error = match self {
             Self::DivisionByZero => "#DIV/0!",
             Self::Value => "#VALUE!",
+            Self::Reference => "#REF!",
             Self::Number => "#NUM!",
             Self::NotAvailable => "#N/A",
         };
         f.write_str(error)
+    }
+}
+
+impl From<f64> for Expr {
+    fn from(value: f64) -> Self {
+        Self::Number(value)
+    }
+}
+
+impl From<i32> for Expr {
+    fn from(value: i32) -> Self {
+        Self::Number(f64::from(value))
+    }
+}
+
+impl From<bool> for Expr {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
+impl From<&str> for Expr {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
+    }
+}
+
+impl From<String> for Expr {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<NaiveDate> for Expr {
+    fn from(value: NaiveDate) -> Self {
+        Self::Date(value)
+    }
+}
+
+impl From<NaiveTime> for Expr {
+    fn from(value: NaiveTime) -> Self {
+        Self::Time(value)
+    }
+}
+
+impl From<DateTime<Utc>> for Expr {
+    fn from(value: DateTime<Utc>) -> Self {
+        Self::Datetime(value)
+    }
+}
+
+impl From<ExprError> for Expr {
+    fn from(value: ExprError) -> Self {
+        Self::Error(value)
+    }
+}
+
+/// `None` is an empty cell
+impl<T: Into<Expr>> From<Option<T>> for Expr {
+    fn from(value: Option<T>) -> Self {
+        value.map_or(Self::Null, Into::into)
     }
 }
 
@@ -159,7 +254,6 @@ fn check_nesting(formula: &str) -> Result<()> {
                 chars.next();
             }
             (Some(q), c) if c == q => quote = None,
-            (Some(_), _) => {}
             (None, '\'' | '"') => quote = Some(c),
             (None, '(' | '{') => {
                 depth += 1;
@@ -168,6 +262,7 @@ fn check_nesting(formula: &str) -> Result<()> {
                 }
             }
             (None, ')' | '}') => depth = depth.saturating_sub(1),
+            // the other characters, inside or outside of strings
             _ => {}
         }
     }
@@ -190,20 +285,24 @@ impl<'a> Formula<'a> {
     ///
     /// # Errors
     ///
-    /// Will return `Err` if the formula is not valid, uses a function that is not implemented yet,
-    /// or nests functions more than 64 levels deep like Excel.
+    /// Will return `Err` if the formula is not valid, refers to cells outside of an Excel sheet like `XFE1`,
+    /// uses a function that is not implemented yet, or nests functions more than 64 levels deep like Excel.
     pub fn new(formula: &'a str) -> Result<Self> {
         check_nesting(formula)?;
         let mut pairs =
             FormulaInner::parse(Rule::root, formula).map_err(|_| error::Error::Parser("root".to_string()))?;
 
         // also in branches that might not be evaluated, so a formula fails or not regardless of its values
-        if let Some(pair) = pairs
-            .clone()
-            .flatten()
-            .find(|pair| Self::evaluator(pair.as_rule()).is_none())
-        {
-            return Err(error::Error::NotImplemented(format!("{:?}", pair.as_rule())));
+        for pair in pairs.clone().flatten() {
+            match pair.as_rule() {
+                rule if Evaluator::dispatch(rule).is_none() => {
+                    return Err(error::Error::NotImplemented(format!("{rule:?}")));
+                }
+                Rule::reference if Reference::new(pair.clone()).is_none() => {
+                    return Err(error::Error::Parser(pair.as_str().to_string()));
+                }
+                _ => {}
+            }
         }
 
         let pairs = pairs
@@ -212,23 +311,51 @@ impl<'a> Formula<'a> {
         Ok(Self { pairs })
     }
 
-    /// Parse a formula and return the result
+    /// Parse a formula and return the result. Its references read empty cells, see `parse_with`.
     ///
     /// # Errors
     ///
     /// Doesn't return `Err`, `Formula::new` already rejects the formulas that can't be evaluated.
     /// Spreadsheet errors like `#DIV/0!` are a valid result, `Ok(Expr::Error(_))`.
-    pub fn parse(self) -> Result<Expr> {
-        Ok(Self::parse_pair(self.pairs).unwrap_or_else(Expr::Error))
+    pub fn parse(&self) -> Result<Expr> {
+        let no_cells: &[Vec<Expr>] = &[];
+        self.parse_with(no_cells)
     }
 
-    fn parse_pair(pair: Pair<Rule>) -> parsers::Result<Expr> {
+    /// Parse a formula and return the result, its references read `cells`
+    ///
+    /// ```rust
+    /// use formula::{Expr, Formula};
+    ///
+    /// let rows = vec![
+    ///     vec![Expr::from("Apples"), Expr::from(3), Expr::from(1.5)],
+    ///     vec![Expr::from("Pears"), Expr::from(2), Expr::Null],
+    /// ];
+    /// let formula = Formula::new("=F.ADD(B1, B2)").unwrap();
+    /// assert_eq!(formula.parse_with(&rows).unwrap(), Expr::Number(5.0));
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Doesn't return `Err`, `Formula::new` already rejects the formulas that can't be evaluated.
+    /// Spreadsheet errors like `#DIV/0!` are a valid result, `Ok(Expr::Error(_))`.
+    pub fn parse_with(&self, cells: &(impl Cells + ?Sized)) -> Result<Expr> {
+        let evaluator = Evaluator { cells: &cells };
+        Ok(evaluator.parse_pair(self.pairs.clone()).unwrap_or_else(Expr::Error))
+    }
+}
+
+/// A function that evaluates one rule
+type Evaluate<'c> = fn(&Evaluator<'c>, Pair<Rule>) -> parsers::Result<Expr>;
+
+impl<'c> Evaluator<'c> {
+    fn parse_pair(&self, pair: Pair<Rule>) -> parsers::Result<Expr> {
         // Picking the function first and calling it once keeps this frame small,
         // so deeply nested formulas don't overflow the stack in debug builds
         let evaluate =
-            Self::evaluator(pair.as_rule()).expect("`Formula::new` rejects functions that are not implemented");
+            Self::dispatch(pair.as_rule()).expect("`Formula::new` rejects functions that are not implemented");
 
-        match evaluate(pair)? {
+        match evaluate(self, pair)? {
             // Spreadsheet errors stop the evaluation until a function handles them
             Expr::Error(error) => Err(error),
             value => Ok(value),
@@ -237,9 +364,8 @@ impl<'a> Formula<'a> {
 
     /// The function that evaluates `rule`, `None` for functions that are not implemented yet
     #[allow(clippy::too_many_lines)]
-    fn evaluator(rule: Rule) -> Option<fn(Pair<Rule>) -> parsers::Result<Expr>> {
-        #[allow(clippy::match_same_arms)]
-        let evaluate: fn(Pair<Rule>) -> parsers::Result<Expr> = match rule {
+    fn dispatch(rule: Rule) -> Option<Evaluate<'c>> {
+        let evaluate: Evaluate<'c> = match rule {
             // Operators
             Rule::add => Self::parse_add,
             Rule::sub => Self::parse_sub,
@@ -450,6 +576,7 @@ impl<'a> Formula<'a> {
             Rule::bool_true => Self::parse_true,
             Rule::bool_false => Self::parse_false,
             Rule::array => Self::parse_array,
+            Rule::reference => Self::parse_reference,
             Rule::formula
             | Rule::root
             | Rule::OP
@@ -461,6 +588,12 @@ impl<'a> Formula<'a> {
             | Rule::inner_single
             | Rule::inner_double
             | Rule::escape
+            | Rule::sheet_name
+            | Rule::quoted_sheet_name
+            | Rule::sheet
+            | Rule::column
+            | Rule::row
+            | Rule::cell
             | Rule::array_row_sep
             | Rule::array_col_sep
             | Rule::basic_types
@@ -471,7 +604,7 @@ impl<'a> Formula<'a> {
             | Rule::math_functions
             | Rule::web_functions
             | Rule::WHITESPACE
-            | Rule::EOI => |_| unreachable!("parts of other rules aren't evaluated on their own"),
+            | Rule::EOI => |_, _| unreachable!("parts of other rules aren't evaluated on their own"),
         };
         Some(evaluate)
     }
@@ -480,6 +613,34 @@ impl<'a> Formula<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_expr_conversions() {
+        let date = NaiveDate::from_ymd_opt(2020, 1, 2).unwrap();
+        let time = NaiveTime::from_hms_opt(3, 4, 5).unwrap();
+        let datetime = date.and_time(time).and_utc();
+
+        assert_eq!(Expr::from(1.5), Expr::Number(1.5));
+        assert_eq!(Expr::from(2), Expr::Number(2.0));
+        assert_eq!(Expr::from(true), Expr::Bool(true));
+        assert_eq!(Expr::from("a"), Expr::String("a".to_string()));
+        assert_eq!(Expr::from("a".to_string()), Expr::String("a".to_string()));
+        assert_eq!(Expr::from(date), Expr::Date(date));
+        assert_eq!(Expr::from(time), Expr::Time(time));
+        assert_eq!(Expr::from(datetime), Expr::Datetime(datetime));
+        assert_eq!(Expr::from(ExprError::Reference), Expr::Error(ExprError::Reference));
+        assert_eq!(Expr::from(Some(1)), Expr::Number(1.0));
+        assert_eq!(Expr::from(None::<f64>), Expr::Null);
+    }
+
+    #[test]
+    fn test_expr_error_display() {
+        assert_eq!(ExprError::DivisionByZero.to_string(), "#DIV/0!");
+        assert_eq!(ExprError::Value.to_string(), "#VALUE!");
+        assert_eq!(ExprError::Reference.to_string(), "#REF!");
+        assert_eq!(ExprError::Number.to_string(), "#NUM!");
+        assert_eq!(ExprError::NotAvailable.to_string(), "#N/A");
+    }
 
     #[test]
     fn test_nesting_limit() {
@@ -515,6 +676,7 @@ mod tests {
             "=WORKDAY(DATE(2020,1,1), 5)",
             "=WORKDAY.INTL(DATE(2020,1,1), 5)",
             "=FILTERXML('<a/>', '/a')",
+            "=SUBSTITUTE('a', 'a', 'b')",
         ] {
             assert!(matches!(Formula::new(formula), Err(error::Error::NotImplemented(_))));
         }

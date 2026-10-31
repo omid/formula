@@ -1,104 +1,109 @@
-use super::Result;
-use crate::{Expr, ExprError, Formula, Rule};
-use pest::iterators::Pair;
+use super::{
+    Evaluator, Result,
+    helper::{ArgValue, as_text, number_to_text},
+};
+use crate::{Expr, ExprError, Rule};
+use pest::iterators::{Pair, Pairs};
+use std::borrow::Cow;
 
 /// Excel's maximum text length
 const MAX_TEXT_LEN: usize = 32_767;
 /// Excel's maximum number of decimals in `FIXED`
 const MAX_FIXED_DECIMALS: f64 = 127.0;
 
-impl Formula<'_> {
-    pub(crate) fn parse_left(pair: Pair<Rule>) -> Result<Expr> {
+impl Evaluator<'_> {
+    pub(crate) fn parse_left(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_chars = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let mut text = self.get_text(&mut args)?;
+        let chars = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_chars) {
-            (Expr::String(text), Expr::Number(chars)) if chars >= 0.0 => text.chars().take(chars as usize).collect(),
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if chars >= 0.0 {
+            text.truncate(Self::char_index(&text, chars as usize));
+            Ok(Expr::String(text))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
-    pub(crate) fn parse_leftb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_leftb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_bytes = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
+        let bytes = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_bytes) {
-            (Expr::String(text), Expr::Number(bytes)) if bytes >= 0.0 => {
-                let end = (bytes as usize).min(text.len());
-                String::from_utf8_lossy(&text.as_bytes()[..end]).into_owned()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if bytes >= 0.0 {
+            let end = (bytes as usize).min(text.len());
+            Ok(Expr::String(
+                String::from_utf8_lossy(&text.as_bytes()[..end]).into_owned(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
-    pub(crate) fn parse_right(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_right(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_chars = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let mut text = self.get_text(&mut args)?;
+        let chars = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_chars) {
-            (Expr::String(text), Expr::Number(chars)) if chars >= 0.0 => {
-                let start = text.chars().count().saturating_sub(chars as usize);
-                text.chars().skip(start).collect()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if chars >= 0.0 {
+            let skip = text.chars().count().saturating_sub(chars as usize);
+            text.replace_range(..Self::char_index(&text, skip), "");
+            Ok(Expr::String(text))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
-    pub(crate) fn parse_rightb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_rightb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let num_bytes = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
+        let bytes = self.get_opt_number(&mut args, 1.0)?;
 
-        let text = match (text, num_bytes) {
-            (Expr::String(text), Expr::Number(bytes)) if bytes >= 0.0 => {
-                let start = text.len().saturating_sub(bytes as usize);
-                String::from_utf8_lossy(&text.as_bytes()[start..]).into_owned()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if bytes >= 0.0 {
+            let start = text.len().saturating_sub(bytes as usize);
+            Ok(Expr::String(
+                String::from_utf8_lossy(&text.as_bytes()[start..]).into_owned(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
-    pub(crate) fn parse_mid(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_mid(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
+        let mut text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
 
-        let text = match (text, start, len) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len)) if start >= 1.0 && len >= 0.0 => {
-                text.chars().skip(start as usize - 1).take(len as usize).collect()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            let start = Self::char_index(&text, start as usize - 1);
+            text.truncate(start + Self::char_index(&text[start..], len as usize));
+            text.replace_range(..start, "");
+            Ok(Expr::String(text))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
-    pub(crate) fn parse_midb(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_midb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
+        let text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
 
-        let text = match (text, start, len) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len)) if start >= 1.0 && len >= 0.0 => {
-                let start = (start as usize - 1).min(text.len());
-                let end = start.saturating_add(len as usize).min(text.len());
-                String::from_utf8_lossy(&text.as_bytes()[start..end]).into_owned()
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            let start = (start as usize - 1).min(text.len());
+            let end = start.saturating_add(len as usize).min(text.len());
+            Ok(Expr::String(
+                String::from_utf8_lossy(&text.as_bytes()[start..end]).into_owned(),
+            ))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
     /// `CHAR` covers the single byte range, `UNICHAR` covers every code point
-    pub(crate) fn parse_char(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_char(&self, pair: Pair<Rule>) -> Result<Expr> {
         let max = if pair.as_rule() == Rule::char {
             255.0
         } else {
@@ -106,204 +111,172 @@ impl Formula<'_> {
         };
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
-            Expr::Number(number) if (1.0..=max).contains(&number) => char::from_u32(number as u32)
+        match self.get_number(&mut args)? {
+            number if (1.0..=max).contains(&number) => char::from_u32(number as u32)
                 .map(|c| Expr::String(c.to_string()))
                 .ok_or(ExprError::Value),
             _ => Err(ExprError::Value),
         }
     }
 
-    pub(crate) fn parse_code(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_code(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
 
-        match Self::get_formula(&mut args)? {
-            Expr::String(text) => text
-                .chars()
-                .next()
-                .map(|c| Expr::Number(f64::from(u32::from(c))))
-                .ok_or(ExprError::Value),
-            _ => Err(ExprError::Value),
+        self.get_text(&mut args)?
+            .chars()
+            .next()
+            .map(|c| Expr::Number(f64::from(u32::from(c))))
+            .ok_or(ExprError::Value)
+    }
+
+    pub(crate) fn parse_concat(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.join_texts(pair.into_inner(), "", false)
+    }
+
+    pub(crate) fn parse_exact(&self, pair: Pair<Rule>) -> Result<Expr> {
+        let mut args = pair.into_inner();
+        let text1 = self.get_text(&mut args)?;
+        let text2 = self.get_text(&mut args)?;
+
+        Ok(Expr::Bool(text1 == text2))
+    }
+
+    pub(crate) fn parse_find(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, false, Self::find_chars)
+    }
+
+    pub(crate) fn parse_findb(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, false, Self::find_bytes)
+    }
+
+    pub(crate) fn parse_search(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, true, Self::find_chars)
+    }
+
+    pub(crate) fn parse_searchb(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_find_text(pair, true, Self::find_bytes)
+    }
+
+    pub(crate) fn parse_fixed(&self, pair: Pair<Rule>) -> Result<Expr> {
+        let mut args = pair.into_inner();
+        let number = self.get_number(&mut args)?;
+        let decimals = self.get_opt_number(&mut args, 2.0)?;
+        let no_commas = self.get_opt_bool(&mut args, false)?;
+
+        let decimals = match decimals {
+            decimals if decimals <= MAX_FIXED_DECIMALS => decimals.trunc().max(-308.0),
+            _ => return Err(ExprError::Value),
+        };
+
+        // Excel rounds half away from zero, Rust's formatter doesn't
+        let factor = 10f64.powf(decimals);
+        let rounded = (number * factor).round() / factor;
+        let number = match rounded {
+            0.0 => 0.0, // avoid "-0"
+            rounded if rounded.is_finite() => rounded,
+            _ => number,
+        };
+
+        let text = format!("{number:.0$}", decimals.max(0.0) as usize);
+        Ok(Expr::String(if no_commas {
+            text
+        } else {
+            Self::group_thousands(&text)
+        }))
+    }
+
+    pub(crate) fn parse_len(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::Number(text.chars().count() as f64))
+    }
+
+    pub(crate) fn parse_lenb(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::Number(text.len() as f64))
+    }
+
+    pub(crate) fn parse_lower(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::String(text.to_lowercase()))
+    }
+
+    pub(crate) fn parse_upper(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| Expr::String(text.to_uppercase()))
+    }
+
+    pub(crate) fn parse_rept(&self, pair: Pair<Rule>) -> Result<Expr> {
+        let mut args = pair.into_inner();
+        let text = self.get_text(&mut args)?;
+        let rept = self.get_number(&mut args)?;
+
+        if rept >= 0.0 && text.chars().count().saturating_mul(rept as usize) <= MAX_TEXT_LEN {
+            Ok(Expr::String(text.repeat(rept as usize)))
+        } else {
+            Err(ExprError::Value)
         }
     }
 
-    pub(crate) fn parse_concat(pair: Pair<Rule>) -> Result<Expr> {
-        pair.into_inner()
-            .try_fold(String::new(), |mut text, arg| match Self::parse_pair(arg)? {
-                Expr::String(t) => {
-                    text.push_str(&t);
-                    Ok(text)
-                }
-                _ => Err(ExprError::Value),
-            })
-            .map(Expr::String)
-    }
-
-    pub(crate) fn parse_exact(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_replace(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text1 = Self::get_formula(&mut args)?;
-        let text2 = Self::get_formula(&mut args)?;
+        let mut text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
+        let new_text = self.get_text(&mut args)?;
 
-        match (text1, text2) {
-            (Expr::String(text1), Expr::String(text2)) => Ok(Expr::Bool(text1 == text2)),
-            _ => Err(ExprError::Value),
+        if start >= 1.0 && len >= 0.0 {
+            let start = Self::char_index(&text, start as usize - 1);
+            let end = start + Self::char_index(&text[start..], len as usize);
+            text.replace_range(start..end, &new_text);
+            Ok(Expr::String(text))
+        } else {
+            Err(ExprError::Value)
         }
     }
 
-    pub(crate) fn parse_find(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, false, Self::find_chars)
-    }
-
-    pub(crate) fn parse_findb(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, false, Self::find_bytes)
-    }
-
-    pub(crate) fn parse_search(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, true, Self::find_chars)
-    }
-
-    pub(crate) fn parse_searchb(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_find_text(pair, true, Self::find_bytes)
-    }
-
-    pub(crate) fn parse_fixed(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_replaceb(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let number = Self::get_formula(&mut args)?;
-        let decimals = Self::get_opt_formula_with_default(&mut args, Expr::Number(2.0))?;
-        let no_commas = Self::get_opt_formula_with_default(&mut args, Expr::Bool(false))?;
+        let text = self.get_text(&mut args)?;
+        let start = self.get_number(&mut args)?;
+        let len = self.get_number(&mut args)?;
+        let new_text = self.get_text(&mut args)?;
 
-        let text = match (number, decimals, no_commas) {
-            (Expr::Number(number), Expr::Number(decimals), Expr::Bool(no_commas)) if decimals <= MAX_FIXED_DECIMALS => {
-                // Excel rounds half away from zero, Rust's formatter doesn't
-                let decimals = decimals.trunc().max(-308.0);
-                let factor = 10f64.powf(decimals);
-                let rounded = (number * factor).round() / factor;
-                let number = match rounded {
-                    0.0 => 0.0, // avoid "-0"
-                    rounded if rounded.is_finite() => rounded,
-                    _ => number,
-                };
-
-                let text = format!("{number:.0$}", decimals.max(0.0) as usize);
-                if no_commas { text } else { Self::group_thousands(&text) }
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
+        if start >= 1.0 && len >= 0.0 {
+            let bytes = text.as_bytes();
+            let start = (start as usize - 1).min(bytes.len());
+            let end = start.saturating_add(len as usize).min(bytes.len());
+            Ok(Expr::String(format!(
+                "{}{}{}",
+                String::from_utf8_lossy(&bytes[..start]),
+                new_text,
+                String::from_utf8_lossy(&bytes[end..])
+            )))
+        } else {
+            Err(ExprError::Value)
+        }
     }
 
-    pub(crate) fn parse_len(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::Number(text.chars().count() as f64))
-    }
-
-    pub(crate) fn parse_lenb(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::Number(text.len() as f64))
-    }
-
-    pub(crate) fn parse_lower(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::String(text.to_lowercase()))
-    }
-
-    pub(crate) fn parse_upper(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| Expr::String(text.to_uppercase()))
-    }
-
-    pub(crate) fn parse_rept(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_textjoin(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let rept = Self::get_formula(&mut args)?;
+        let delim = self.get_text(&mut args)?;
+        let ignore_empty = self.get_bool(&mut args)?;
 
-        let text = match (text, rept) {
-            (Expr::String(text), Expr::Number(rept))
-                if rept >= 0.0 && text.chars().count().saturating_mul(rept as usize) <= MAX_TEXT_LEN =>
-            {
-                text.repeat(rept as usize)
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
-    }
-
-    pub(crate) fn parse_replace(pair: Pair<Rule>) -> Result<Expr> {
-        let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
-        let new_text = Self::get_formula(&mut args)?;
-
-        let text = match (text, start, len, new_text) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text))
-                if start >= 1.0 && len >= 0.0 =>
-            {
-                let mut chars = text.chars();
-                let start_text = chars.by_ref().take(start as usize - 1).collect::<String>();
-                let end_text = chars.skip(len as usize).collect::<String>();
-                format!("{start_text}{new_text}{end_text}")
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
-    }
-
-    pub(crate) fn parse_replaceb(pair: Pair<Rule>) -> Result<Expr> {
-        let mut args = pair.into_inner();
-        let text = Self::get_formula(&mut args)?;
-        let start = Self::get_formula(&mut args)?;
-        let len = Self::get_formula(&mut args)?;
-        let new_text = Self::get_formula(&mut args)?;
-
-        let text = match (text, start, len, new_text) {
-            (Expr::String(text), Expr::Number(start), Expr::Number(len), Expr::String(new_text))
-                if start >= 1.0 && len >= 0.0 =>
-            {
-                let bytes = text.as_bytes();
-                let start = (start as usize - 1).min(bytes.len());
-                let end = start.saturating_add(len as usize).min(bytes.len());
-                format!(
-                    "{}{}{}",
-                    String::from_utf8_lossy(&bytes[..start]),
-                    new_text,
-                    String::from_utf8_lossy(&bytes[end..])
-                )
-            }
-            _ => return Err(ExprError::Value),
-        };
-        Ok(Expr::String(text))
-    }
-
-    pub(crate) fn parse_textjoin(pair: Pair<Rule>) -> Result<Expr> {
-        let mut args = pair.into_inner();
-        let delim = Self::get_formula(&mut args)?;
-        let ignore_empty = Self::get_formula(&mut args)?;
-
-        let (Expr::String(delim), Expr::Bool(ignore_empty)) = (delim, ignore_empty) else {
-            return Err(ExprError::Value);
-        };
-        let texts = args
-            .map(|arg| match Self::parse_pair(arg)? {
-                Expr::String(t) => Ok(t),
-                _ => Err(ExprError::Value),
-            })
-            .filter(|t| !(ignore_empty && t.as_ref().is_ok_and(String::is_empty)))
-            .collect::<Result<Vec<_>>>()?;
-        Ok(Expr::String(texts.join(&delim)))
+        self.join_texts(args, &delim, ignore_empty)
     }
 
     /// Like Excel, only spaces are removed and the inner runs of spaces become one space
-    pub(crate) fn parse_trim(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| {
-            Expr::String(
-                text.split(' ')
-                    .filter(|word| !word.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" "),
-            )
+    pub(crate) fn parse_trim(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| {
+            let mut trimmed = String::with_capacity(text.len());
+            for word in text.split(' ').filter(|word| !word.is_empty()) {
+                if !trimmed.is_empty() {
+                    trimmed.push(' ');
+                }
+                trimmed.push_str(word);
+            }
+            Expr::String(trimmed)
         })
     }
 
-    pub(crate) fn parse_t(pair: Pair<Rule>) -> Result<Expr> {
+    pub(crate) fn parse_t(&self, pair: Pair<Rule>) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let text = match Self::get_formula(&mut args)? {
+        let text = match self.get_formula(&mut args)? {
             Expr::String(text) => text,
             _ => String::new(),
         };
@@ -311,8 +284,8 @@ impl Formula<'_> {
     }
 
     /// Like Excel, the first letter and every letter that follows a non-letter are capitalized
-    pub(crate) fn parse_proper(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_text(pair, |text| {
+    pub(crate) fn parse_proper(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_text(pair, |text| {
             let mut proper = String::with_capacity(text.len());
             let mut after_letter = false;
             for c in text.chars() {
@@ -327,33 +300,71 @@ impl Formula<'_> {
         })
     }
 
-    /// Evaluates a function that takes one text
-    fn parse_unary_text(pair: Pair<Rule>, f: impl FnOnce(&str) -> Expr) -> Result<Expr> {
-        let mut args = pair.into_inner();
+    /// Joins the texts of the arguments with `delim`. Like Excel, the numbers and booleans of references
+    /// and arrays become texts, and texts longer than 32,767 characters are `#VALUE!`.
+    fn join_texts(&self, args: Pairs<Rule>, delim: &str, ignore_empty: bool) -> Result<Expr> {
+        let mut text = String::new();
+        let mut chars = 0;
+        let mut first = true;
+        self.for_each_value(args, |value| {
+            let part = match value {
+                ArgValue::InRange(Expr::Number(number)) => Cow::Owned(number_to_text(number)),
+                ArgValue::InRange(Expr::Bool(bool)) => Cow::Borrowed(if bool { "TRUE" } else { "FALSE" }),
+                ArgValue::Single(value) | ArgValue::InRange(value) => Cow::Owned(as_text(value)?),
+            };
+            if ignore_empty && part.is_empty() {
+                return Ok(());
+            }
 
-        match Self::get_formula(&mut args)? {
-            Expr::String(text) => Ok(f(&text)),
-            _ => Err(ExprError::Value),
-        }
+            let delim = if first { "" } else { delim };
+            first = false;
+            chars += delim.chars().count() + part.chars().count();
+            if chars > MAX_TEXT_LEN {
+                return Err(ExprError::Value);
+            }
+
+            if text.is_empty() && delim.is_empty() {
+                // the first text is the start of the result, without copying it
+                text = part.into_owned();
+            } else {
+                text.push_str(delim);
+                text.push_str(&part);
+            }
+            Ok(())
+        })?;
+        Ok(Expr::String(text))
     }
 
-    fn parse_find_text(pair: Pair<Rule>, ignore_case: bool, find: fn(&str, &str, f64) -> Option<f64>) -> Result<Expr> {
+    /// Evaluates a function that takes one text
+    fn parse_unary_text(&self, pair: Pair<Rule>, f: impl FnOnce(&str) -> Expr) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let find_text = Self::get_formula(&mut args)?;
-        let within_text = Self::get_formula(&mut args)?;
-        let start_num = Self::get_opt_formula_with_default(&mut args, Expr::Number(1.0))?;
+        let text = self.get_text(&mut args)?;
 
-        let index = match (find_text, within_text, start_num) {
-            (Expr::String(find_text), Expr::String(within_text), Expr::Number(start_num)) => {
-                if ignore_case {
-                    find(&within_text.to_lowercase(), &find_text.to_lowercase(), start_num)
-                } else {
-                    find(&within_text, &find_text, start_num)
-                }
-            }
-            _ => None,
+        Ok(f(&text))
+    }
+
+    fn parse_find_text(
+        &self,
+        pair: Pair<Rule>,
+        ignore_case: bool,
+        find: fn(&str, &str, f64) -> Option<f64>,
+    ) -> Result<Expr> {
+        let mut args = pair.into_inner();
+        let find_text = self.get_text(&mut args)?;
+        let within_text = self.get_text(&mut args)?;
+        let start_num = self.get_opt_number(&mut args, 1.0)?;
+
+        let index = if ignore_case {
+            find(&within_text.to_lowercase(), &find_text.to_lowercase(), start_num)
+        } else {
+            find(&within_text, &find_text, start_num)
         };
         index.map(Expr::Number).ok_or(ExprError::Value)
+    }
+
+    /// The byte index of the character after the first `chars` characters, so texts can be cut where they are
+    fn char_index(text: &str, chars: usize) -> usize {
+        text.char_indices().nth(chars).map_or(text.len(), |(index, _)| index)
     }
 
     /// 1-based character position of `needle`, searching from the `start_num`th character
@@ -403,7 +414,6 @@ mod tests {
     use crate::Formula;
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_text_types() {
         let formula = Formula::new("=LEFT('hello')").unwrap();
         let value = formula.parse().unwrap();
@@ -526,7 +536,10 @@ mod tests {
 
         let formula = Formula::new("=FIND('z', 'abc')").unwrap();
         assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
+    }
 
+    #[test]
+    fn test_parse_text_formatting_types() {
         let formula = Formula::new("=FIXED(123456.673, 2)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("123,456.67".to_string()));
@@ -638,7 +651,10 @@ mod tests {
         let formula = Formula::new("=LEFTB('hi', 5)").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String("hi".to_string()));
+    }
 
+    #[test]
+    fn test_parse_text_edge_cases() {
         let formula = Formula::new("=LEFT('hi', -1)").unwrap();
         assert_eq!(formula.parse().unwrap(), Expr::Error(ExprError::Value));
 
@@ -717,5 +733,58 @@ mod tests {
         let formula = Formula::new("=TEXTJOIN('-', TRUE, '', '')").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::String(String::new()));
+    }
+
+    #[test]
+    fn test_parse_invalid_lengths() {
+        for formula in [
+            "=LEFTB('abc', -1)",
+            "=RIGHT('abc', -1)",
+            "=RIGHTB('abc', -1)",
+            "=REPLACEB('abc', 0, 1, 'x')",
+            "=REPLACEB('abc', 1, -1, 'x')",
+            "=MIDB('abc', 1, -1)",
+            "=FINDB('a', 'abc', 0)",
+            "=FINDB('a', 'abc', 4)",
+        ] {
+            let value = Formula::new(formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::Error(crate::ExprError::Value), "{formula}");
+        }
+
+        let formula = Formula::new("=RIGHTB('abc', 5)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("abc".to_string()));
+
+        let formula = Formula::new("=FINDB('c', 'abc', 3)").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::Number(3.0));
+    }
+
+    #[test]
+    fn test_parse_fixed_huge_numbers() {
+        // rounding overflows, so the number is used as it is
+        let formula = Formula::new("=FIXED(1e300, 10, TRUE)").unwrap();
+        let value = formula.parse().unwrap();
+        assert!(matches!(value, Expr::String(text) if text.len() == 301 + 11 && text.ends_with(".0000000000")));
+    }
+
+    #[test]
+    fn test_parse_cuts_between_characters() {
+        for (formula, text) in [
+            ("=LEFT('héllo', 2)", "hé"),
+            ("=LEFT('héllo', 10)", "héllo"),
+            ("=RIGHT('héllo', 4)", "éllo"),
+            ("=RIGHT('héllo', 0)", ""),
+            ("=MID('héllo', 2, 2)", "él"),
+            ("=MID('héllo', 4, 10)", "lo"),
+            ("=MID('héllo', 10, 2)", ""),
+            ("=REPLACE('héllo', 2, 1, 'e')", "hello"),
+            ("=REPLACE('héllo', 1, 0, '¡')", "¡héllo"),
+            ("=REPLACE('abc', 10, 1, 'x')", "abcx"),
+            ("=TRIM('  é   ü  ')", "é ü"),
+        ] {
+            let value = Formula::new(formula).unwrap().parse().unwrap();
+            assert_eq!(value, Expr::String(text.to_string()), "{formula}");
+        }
     }
 }

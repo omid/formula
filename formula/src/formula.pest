@@ -31,6 +31,18 @@ bool_true = { ^"true" ~ OP ~ CP | ^"true" }
 bool_false = { ^"false" ~ OP ~ CP | ^"false" }
 basic_types = _{ string | num | bool_true | bool_false | array }
 
+// References to cells, like A1, $A$1, B3:A1, A:C, 2:3, Sheet2!A1 or 'My sheet'!A1:B2
+sheet_name = @{ (ALPHABETIC | "_") ~ (ALPHABETIC | ASCII_DIGIT | "_" | ".")* }
+quoted_sheet_name = @{ ("''" | !"'" ~ ANY)+ }
+sheet = _{ "'" ~ quoted_sheet_name ~ "'" | sheet_name }
+column = @{ "$"? ~ ASCII_ALPHA{1, 3} }
+row = @{ "$"? ~ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+cell = _{ column ~ row }
+// not followed by a parenthesis, so functions like LOG10(100) aren't references
+reference = ${
+    (sheet ~ "!")? ~ (cell ~ (":" ~ cell)? | column ~ ":" ~ column | row ~ ":" ~ row) ~ !(WHITESPACE* ~ "(")
+}
+
 // Operators
 add = { ^"F.ADD" ~ OP ~ F ~ CF ~ CP }
 div = { ^"F.DIV" ~ OP ~ F ~ CF ~ CP }
@@ -877,7 +889,8 @@ web_functions = _{
 }
 
 formula = _{
-    basic_types
+    reference
+    | basic_types
     | operators
     | datetime_functions
     | text_functions

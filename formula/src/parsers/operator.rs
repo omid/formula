@@ -1,23 +1,23 @@
-use super::{Result, helper::number};
-use crate::{Expr, ExprError, Formula, Rule};
+use super::{Evaluator, Result, helper::number};
+use crate::{Expr, ExprError, Rule};
 use pest::iterators::Pair;
 use std::cmp::Ordering;
 
-impl Formula<'_> {
-    pub(crate) fn parse_add(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 + operand2))
+impl Evaluator<'_> {
+    pub(crate) fn parse_add(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_binary_number(pair, |operand1, operand2| number(operand1 + operand2))
     }
 
-    pub(crate) fn parse_sub(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 - operand2))
+    pub(crate) fn parse_sub(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_binary_number(pair, |operand1, operand2| number(operand1 - operand2))
     }
 
-    pub(crate) fn parse_mul(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| number(operand1 * operand2))
+    pub(crate) fn parse_mul(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_binary_number(pair, |operand1, operand2| number(operand1 * operand2))
     }
 
-    pub(crate) fn parse_div(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| {
+    pub(crate) fn parse_div(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_binary_number(pair, |operand1, operand2| {
             if operand2 == 0.0 {
                 Expr::Error(ExprError::DivisionByZero)
             } else {
@@ -26,49 +26,52 @@ impl Formula<'_> {
         })
     }
 
-    pub(crate) fn parse_pow(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_binary_number(pair, |operand1, operand2| number(operand1.powf(operand2)))
+    pub(crate) fn parse_pow(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_binary_number(pair, |operand1, operand2| number(operand1.powf(operand2)))
     }
 
-    pub(crate) fn parse_eq(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_comparison(pair, Ordering::is_eq)
+    pub(crate) fn parse_eq(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_comparison(pair, Ordering::is_eq)
     }
 
-    pub(crate) fn parse_ne(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_comparison(pair, Ordering::is_ne)
+    pub(crate) fn parse_ne(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_comparison(pair, Ordering::is_ne)
     }
 
-    pub(crate) fn parse_gt(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_comparison(pair, Ordering::is_gt)
+    pub(crate) fn parse_gt(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_comparison(pair, Ordering::is_gt)
     }
 
-    pub(crate) fn parse_lt(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_comparison(pair, Ordering::is_lt)
+    pub(crate) fn parse_lt(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_comparison(pair, Ordering::is_lt)
     }
 
-    pub(crate) fn parse_gte(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_comparison(pair, Ordering::is_ge)
+    pub(crate) fn parse_gte(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_comparison(pair, Ordering::is_ge)
     }
 
-    pub(crate) fn parse_lte(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_comparison(pair, Ordering::is_le)
+    pub(crate) fn parse_lte(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_comparison(pair, Ordering::is_le)
     }
 
-    pub(crate) fn parse_percent(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_number(pair, |operand| operand / 100.0)
+    pub(crate) fn parse_percent(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_number(pair, |operand| operand / 100.0)
     }
 
-    pub(crate) fn parse_negate(pair: Pair<Rule>) -> Result<Expr> {
-        Self::parse_unary_number(pair, |operand| -operand)
+    pub(crate) fn parse_negate(&self, pair: Pair<Rule>) -> Result<Expr> {
+        self.parse_unary_number(pair, |operand| -operand)
     }
 
     /// Compares two values of the same type. Like Excel:
     /// - numbers that only differ by floating point noise (e.g. `0.1 + 0.2` and `0.3`) are equal
     /// - texts are compared case-insensitively, `EXACT` is the case-sensitive comparison
-    fn parse_comparison(pair: Pair<Rule>, check: fn(Ordering) -> bool) -> Result<Expr> {
+    /// - an empty cell is 0, an empty text or FALSE, depending on the other value
+    fn parse_comparison(&self, pair: Pair<Rule>, check: fn(Ordering) -> bool) -> Result<Expr> {
         let mut args = pair.into_inner();
-        let operand1 = Self::get_formula(&mut args)?;
-        let operand2 = Self::get_formula(&mut args)?;
+        let operand1 = self.get_formula(&mut args)?;
+        let operand2 = self.get_formula(&mut args)?;
+        let operand1 = Self::fill_empty(operand1, &operand2);
+        let operand2 = Self::fill_empty(operand2, &operand1);
 
         let ordering = match (&operand1, &operand2) {
             (Expr::Number(n1), Expr::Number(n2)) if (n1 - n2).abs() <= 1e-15 * n1.abs().max(n2.abs()) => {
@@ -79,10 +82,21 @@ impl Formula<'_> {
             | (Expr::Time(_), Expr::Time(_))
             | (Expr::Datetime(_), Expr::Datetime(_))
             | (Expr::Date(_), Expr::Date(_))
-            | (Expr::Bool(_), Expr::Bool(_)) => operand1.partial_cmp(&operand2),
+            | (Expr::Bool(_), Expr::Bool(_))
+            | (Expr::Null, Expr::Null) => operand1.partial_cmp(&operand2),
             _ => None,
         };
         ordering.map(|o| Expr::Bool(check(o))).ok_or(ExprError::Value)
+    }
+
+    /// An empty cell as the empty value of `other`'s type
+    fn fill_empty(value: Expr, other: &Expr) -> Expr {
+        match (value, other) {
+            (Expr::Null, Expr::Number(_)) => Expr::Number(0.0),
+            (Expr::Null, Expr::String(_)) => Expr::String(String::new()),
+            (Expr::Null, Expr::Bool(_)) => Expr::Bool(false),
+            (value, _) => value,
+        }
     }
 }
 
@@ -92,7 +106,6 @@ mod tests {
     use crate::{ExprError, Formula};
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_operator_types() {
         let formula = Formula::new("=F.ADD(5,6)").unwrap();
         let value = formula.parse().unwrap();

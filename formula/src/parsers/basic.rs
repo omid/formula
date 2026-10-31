@@ -1,16 +1,16 @@
-use super::Result;
-use crate::{Expr, Formula, Rule};
+use super::{Evaluator, Result};
+use crate::{Expr, Rule};
 use pest::iterators::Pair;
 
-impl Formula<'_> {
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_num(pair: Pair<Rule>) -> Result<Expr> {
+impl Evaluator<'_> {
+    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_num(&self, pair: Pair<Rule>) -> Result<Expr> {
         let number = pair.as_str().trim().parse().unwrap();
         Ok(Expr::Number(number))
     }
 
-    #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn parse_string(pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_string(&self, pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::String(Self::unescape(pair.into_inner().as_str())))
     }
 
@@ -30,9 +30,11 @@ impl Formula<'_> {
                 Some('r') => string.push('\r'),
                 Some('t') => string.push('\t'),
                 Some('u') => {
-                    let code = chars.by_ref().take(4).collect::<String>();
-                    let c = u32::from_str_radix(&code, 16).ok().and_then(char::from_u32);
-                    string.push(c.unwrap_or(char::REPLACEMENT_CHARACTER));
+                    let code = chars
+                        .by_ref()
+                        .take(4)
+                        .try_fold(0, |code, digit| Some(code * 16 + digit.to_digit(16)?));
+                    string.push(code.and_then(char::from_u32).unwrap_or(char::REPLACEMENT_CHARACTER));
                 }
                 // quotes and backslash
                 Some(c) => string.push(c),
@@ -42,18 +44,18 @@ impl Formula<'_> {
         string
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_true(_pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_true(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Bool(true))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_false(_pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    pub(crate) fn parse_false(&self, _pair: Pair<Rule>) -> Result<Expr> {
         Ok(Expr::Bool(false))
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
-    pub(crate) fn parse_array(pair: Pair<Rule>) -> Result<Expr> {
+    #[allow(clippy::unnecessary_wraps)]
+    pub(crate) fn parse_array(&self, pair: Pair<Rule>) -> Result<Expr> {
         let inner = pair.into_inner();
 
         let mut table = Vec::new();
@@ -70,7 +72,7 @@ impl Formula<'_> {
                 }
                 _ => {
                     // An error element doesn't make the whole array an error
-                    row.push(Self::parse_pair(ipair).unwrap_or_else(Expr::Error));
+                    row.push(self.parse_pair(ipair).unwrap_or_else(Expr::Error));
                 }
             }
         }
@@ -90,7 +92,6 @@ mod tests {
     use crate::{ExprError, Formula};
 
     #[test]
-    #[allow(clippy::too_many_lines)]
     fn test_parse_basic_types() {
         let formula = Formula::new("=TRUE").unwrap();
         let value = formula.parse().unwrap();
@@ -177,5 +178,16 @@ mod tests {
         let formula = Formula::new("= 1 ").unwrap();
         let value = formula.parse().unwrap();
         assert_eq!(value, Expr::Number(1.0));
+    }
+
+    #[test]
+    fn test_parse_escapes() {
+        let formula = Formula::new(r"='\b\f\r\n\t\'\\'").unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\u{8}\u{c}\r\n\t'\\".to_string()));
+
+        let formula = Formula::new(r#"="\"\u00e9""#).unwrap();
+        let value = formula.parse().unwrap();
+        assert_eq!(value, Expr::String("\"é".to_string()));
     }
 }
